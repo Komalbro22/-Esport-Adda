@@ -29,8 +29,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   if (!kIsWeb) {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    try {
+      await Firebase.initializeApp();
+      // Ensure messaging background handler is registered
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      
+      // Request permission and setup foreground listeners
+      await NotificationService().initialize();
+    } catch (e) {
+      debugPrint('Firebase initialization failed: $e');
+    }
   } else {
     debugPrint('Running on Web: Firebase Cloud Messaging bypassed as it requires specific Web Firebase options configuration.');
   }
