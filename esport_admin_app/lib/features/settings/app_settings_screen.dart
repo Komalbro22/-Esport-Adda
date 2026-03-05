@@ -17,6 +17,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
   String? _logoUrl;
+  String? _adminLogoUrl;
   String? _settingsId;
 
   @override
@@ -34,6 +35,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             _settingsId = data['id'];
             _nameController.text = data['app_name'] ?? 'Esport Adda';
             _logoUrl = data['logo_url'];
+            _adminLogoUrl = data['admin_logo_url'];
           }
           _isLoading = false;
         });
@@ -70,6 +72,28 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
     }
   }
 
+  Future<void> _pickAndUploadAdminLogo() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery);
+    if (file == null) return;
+
+    setState(() => _isSaving = true);
+    
+    try {
+      final url = await ImgBBService.uploadImage(file);
+      if (url != null) {
+        setState(() => _adminLogoUrl = url);
+        StitchSnackbar.showSuccess(context, 'Admin Logo uploaded');
+      } else {
+        StitchSnackbar.showError(context, 'Failed to upload admin logo');
+      }
+    } catch (e) {
+      StitchSnackbar.showError(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
   Future<void> _saveSettings() async {
     if (_nameController.text.trim().isEmpty) {
       StitchSnackbar.showError(context, 'App Name cannot be empty');
@@ -81,6 +105,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
       final updates = {
         'app_name': _nameController.text.trim(),
         'logo_url': _logoUrl,
+        'admin_logo_url': _adminLogoUrl,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
@@ -122,27 +147,33 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                   // Logo Uploader
                   const Text('App Logo', style: TextStyle(fontWeight: FontWeight.w600, color: StitchTheme.textMain)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: StitchTheme.surfaceHighlight,
-                          borderRadius: BorderRadius.circular(12),
-                          image: _logoUrl != null ? DecorationImage(image: NetworkImage(_logoUrl!), fit: BoxFit.cover) : null,
+                    Row(
+                      children: [
+                        _buildLogoPreview(_logoUrl, 'User Logo'),
+                        const SizedBox(width: 24),
+                        StitchButton(
+                          text: 'Upload User Logo',
+                          isSecondary: true,
+                          isLoading: _isSaving,
+                          onPressed: _pickAndUploadLogo,
                         ),
-                        child: _logoUrl == null ? const Icon(Icons.image, color: StitchTheme.textMuted, size: 30) : null,
-                      ),
-                      const SizedBox(width: 24),
-                      StitchButton(
-                        text: 'Upload New Logo',
-                        isSecondary: true,
-                        isLoading: _isSaving,
-                        onPressed: _pickAndUploadLogo,
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Admin Logo', style: TextStyle(fontWeight: FontWeight.w600, color: StitchTheme.textMain)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        _buildLogoPreview(_adminLogoUrl, 'Admin Logo'),
+                        const SizedBox(width: 24),
+                        StitchButton(
+                          text: 'Upload Admin Logo',
+                          isSecondary: true,
+                          isLoading: _isSaving,
+                          onPressed: _pickAndUploadAdminLogo,
+                        ),
+                      ],
+                    ),
                   
                   const SizedBox(height: 24),
                   const Divider(color: StitchTheme.surfaceHighlight),
@@ -170,6 +201,18 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+  Widget _buildLogoPreview(String? url, String label) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: StitchTheme.surfaceHighlight,
+        borderRadius: BorderRadius.circular(12),
+        image: url != null ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover) : null,
+      ),
+      child: url == null ? const Icon(Icons.image, color: StitchTheme.textMuted, size: 30) : null,
     );
   }
 }

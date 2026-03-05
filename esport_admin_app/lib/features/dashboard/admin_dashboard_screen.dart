@@ -18,6 +18,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _pendingDeposits = 0;
   int _pendingWithdraws = 0;
   int _openTickets = 0;
+  Map<String, dynamic>? _appSettings;
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _supabase.from('deposit_requests').select('id').eq('status', 'pending').count(CountOption.exact),
         _supabase.from('withdraw_requests').select('id').eq('status', 'pending').count(CountOption.exact),
         _supabase.from('support_tickets').select('id').eq('status', 'open').count(CountOption.exact),
+        _supabase.from('app_settings').select().limit(1).maybeSingle(),
       ]);
 
       if (mounted) {
@@ -42,6 +44,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _pendingDeposits = futures[2].count ?? 0;
           _pendingWithdraws = futures[3].count ?? 0;
           _openTickets = futures[4].count ?? 0;
+          _appSettings = futures[5] as Map<String, dynamic>?;
           _isLoading = false;
         });
       }
@@ -56,7 +59,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_appSettings != null && _appSettings!['admin_logo_url'] != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(_appSettings!['admin_logo_url'], height: 28, width: 28, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              _appSettings?['app_name'] ?? 'Admin Dashboard', 
+              style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
