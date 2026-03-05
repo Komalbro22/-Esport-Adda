@@ -14,6 +14,8 @@ import 'features/users/user_management_screen.dart';
 import 'features/users/user_detail_screen.dart';
 import 'features/support/support_management_screen.dart';
 import 'features/wallet/payment_settings_screen.dart';
+import 'features/settings/app_settings_screen.dart';
+import 'features/notifications/send_notification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +80,14 @@ final _router = GoRouter(
     GoRoute(
       path: '/payment_settings',
       builder: (context, state) => const PaymentSettingsScreen(),
+    ),
+    GoRoute(
+      path: '/app_settings',
+      builder: (context, state) => const AppSettingsScreen(),
+    ),
+    GoRoute(
+      path: '/send_notification',
+      builder: (context, state) => const SendNotificationScreen(),
     ),
   ],
 );

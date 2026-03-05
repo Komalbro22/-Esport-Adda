@@ -61,7 +61,19 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
         'room_password': _roomPassCtrl.text.trim()
       }).eq('id', widget.tournamentId);
       
-      // Optionally notify all joined users here via Edge Func
+      // Notify all joined users via Edge Func
+      try {
+        await _supabase.functions.invoke('send_notification', body: {
+          'tournament_id': widget.tournamentId,
+          'title': 'Room Details Updated',
+          'body': 'Room ID and Password for ${widget.tournamentId} have been updated. Get ready!',
+          'type': 'tournament',
+          'is_broadcast': false
+        });
+      } catch (e) {
+        debugPrint('Failed to send push: $e');
+      }
+
       if (mounted) StitchSnackbar.showSuccess(context, 'Room details updated');
     } catch (e) {
       if (mounted) StitchSnackbar.showError(context, 'Failed to update room');
@@ -87,12 +99,34 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
          
          if (response.status == 200) {
            if (mounted) StitchSnackbar.showSuccess(context, 'Tournament Completed & Prizes Distributed!');
+           
+           try {
+             await _supabase.functions.invoke('send_notification', body: {
+               'tournament_id': widget.tournamentId,
+               'title': 'Results Announced',
+               'body': 'Tournament completed. Winnings have been transferred!',
+               'type': 'tournament',
+               'is_broadcast': false
+             });
+           } catch (_) {}
          } else {
            throw Exception(response.data?['error'] ?? 'Distribution failed');
          }
       } else {
          await _supabase.from('tournaments').update({'status': status}).eq('id', widget.tournamentId);
          if (mounted) StitchSnackbar.showSuccess(context, 'Status updated to $status');
+
+         if (status == 'ongoing') {
+           try {
+             await _supabase.functions.invoke('send_notification', body: {
+               'tournament_id': widget.tournamentId,
+               'title': 'Match Started!',
+               'body': 'The tournament has officially started.',
+               'type': 'tournament',
+               'is_broadcast': false
+             });
+           } catch (_) {}
+         }
       }
     } catch (e) {
       if (mounted) StitchSnackbar.showError(context, e.toString());

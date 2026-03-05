@@ -75,14 +75,16 @@ serve(async (req) => {
             .update({ status: txStatus })
             .eq('reference_id', request_id)
 
-        // Notify user
-        await supabaseAdmin.from('notifications').insert({
-            user_id: request.user_id,
-            title: `Withdrawal ${approved ? 'Approved' : 'Rejected'}`,
-            body: `Your withdrawal request of ${request.amount} has been ${newStatus}.`
+        // Notify user via push notification Edge Function
+        await supabaseAdmin.functions.invoke('send_notification', {
+            body: {
+                user_id: request.user_id,
+                title: `Withdrawal ${approved ? 'Approved' : 'Rejected'}`,
+                body: `Your withdrawal request of ₹${request.amount} has been ${newStatus}.`,
+                type: 'withdraw_status',
+                related_id: request_id
+            }
         })
-
-        // Could call FCM send edge function internally
 
         return new Response(JSON.stringify({ success: true, status: newStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     } catch (e) {

@@ -16,6 +16,8 @@ class _HomeTabState extends State<HomeTab> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _games = [];
   Map<String, dynamic>? _walletStats;
+  Map<String, dynamic>? _appSettings;
+
   
   @override
   void initState() {
@@ -32,12 +34,14 @@ class _HomeTabState extends State<HomeTab> {
       final futures = await Future.wait([
         _supabase.from('games').select('*').eq('is_active', true).order('created_at'),
         _supabase.from('user_wallets').select('deposit_wallet, winning_wallet').eq('user_id', user.id).single(),
+        _supabase.from('app_settings').select().limit(1).maybeSingle(),
       ]);
 
       if (mounted) {
         setState(() {
           _games = List<Map<String, dynamic>>.from(futures[0] as List);
           _walletStats = futures[1] as Map<String, dynamic>;
+          _appSettings = futures[2] as Map<String, dynamic>?;
           _isLoading = false;
         });
       }
@@ -59,12 +63,62 @@ class _HomeTabState extends State<HomeTab> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Esport Adda', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 24)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_appSettings != null && _appSettings!['logo_url'] != null && _appSettings!['logo_url'].toString().isNotEmpty) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(_appSettings!['logo_url'], height: 28, width: 28, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              _appSettings?['app_name'] ?? 'Esport Adda', 
+              style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 22)
+            ),
+          ],
+        ),
         centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () => context.push('/notifications'),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _supabase
+                .from('notifications')
+                .stream(primaryKey: ['id'])
+                .eq('user_id', _supabase.auth.currentUser!.id)
+                .order('created_at', ascending: false),
+            builder: (context, snapshot) {
+              int unreadCount = snapshot.data?.where((n) => n['is_read'] != true).length ?? 0;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_rounded),
+                    onPressed: () => context.push('/notifications'),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: StitchTheme.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          unreadCount > 9 ? '9+' : unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),

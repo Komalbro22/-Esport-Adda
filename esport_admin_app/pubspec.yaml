@@ -11,6 +11,7 @@ dependencies:
     path: ../esport_core
   firebase_core: ^4.5.0
   firebase_messaging: ^16.1.2
+  flutter_local_notifications: ^18.0.1
   flutter:
     sdk: flutter
   flutter_animate: ^4.5.2

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'home_tab.dart';
 import 'wallet_tab.dart';
 import 'profile_tab.dart';
+import '../notifications/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -33,8 +34,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final session = data.session;
       if (session == null && mounted) {
         context.go('/login');
+      } else {
+        NotificationService().initialize();
       }
     });
+    
+    // Initialize if already logged in on launch
+    if (_supabase.auth.currentSession != null) {
+      NotificationService().initialize();
+    }
   }
 
   @override

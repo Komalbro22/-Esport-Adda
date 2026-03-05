@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'features/notifications/notification_service.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/signup_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -15,10 +19,22 @@ import 'features/profile/settings_screen.dart';
 import 'features/profile/support_screen.dart';
 import 'features/dashboard/edit_profile_screen.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 // User App Entry Point
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } else {
+    debugPrint('Running on Web: Firebase Cloud Messaging bypassed as it requires specific Web Firebase options configuration.');
+  }
+
   // Real values provided later, these are placeholder initialization
   await Supabase.initialize(
     url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://scdurogygxupczckioel.supabase.co'),

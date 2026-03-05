@@ -73,11 +73,15 @@ serve(async (req) => {
             .update({ status: txStatus })
             .eq('reference_id', request_id)
 
-        // Notify user
-        await supabaseAdmin.from('notifications').insert({
-            user_id: request.user_id,
-            title: `Deposit ${approved ? 'Approved' : 'Rejected'}`,
-            body: `Your deposit request of ${request.amount} has been ${newStatus}.`
+        // Notify user via push notification Edge Function
+        await supabaseAdmin.functions.invoke('send_notification', {
+            body: {
+                user_id: request.user_id,
+                title: `Deposit ${approved ? 'Approved' : 'Rejected'}`,
+                body: `Your deposit request of ₹${request.amount} has been ${newStatus}.`,
+                type: 'deposit_status',
+                related_id: request_id
+            }
         })
 
         return new Response(JSON.stringify({ success: true, status: newStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

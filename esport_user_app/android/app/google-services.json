@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "654620307475",
+    "project_id": "esports-adda-1862e",
+    "storage_bucket": "esports-adda-1862e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:654620307475:android:f800b049fcc9d90cebcfe6",
+        "android_client_info": {
+          "package_name": "com.example.esport_user_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwHoPHJsjqeMuSfybJkjzYqPy0wD4JASs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
