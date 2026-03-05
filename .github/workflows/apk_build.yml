@@ -23,7 +23,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.29.0' # Adjust if needed, latest stable is fine
+          # No hardcoded version, always uses latest stable
 
       - name: Get Dependencies
         run: |
