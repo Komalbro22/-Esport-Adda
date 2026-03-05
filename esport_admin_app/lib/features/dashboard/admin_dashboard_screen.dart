@@ -28,7 +28,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchMetrics() async {
     try {
-      final futures = await Future.wait([
+      final futures = await Future.wait<dynamic>([
         _supabase.from('users').select('id').count(CountOption.exact),
         _supabase.from('tournaments').select('id').inFilter('status', ['upcoming', 'ongoing']).count(CountOption.exact),
         _supabase.from('deposit_requests').select('id').eq('status', 'pending').count(CountOption.exact),
