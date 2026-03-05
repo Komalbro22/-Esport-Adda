@@ -40,20 +40,26 @@ class _StitchStatCardState extends State<StitchStatCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.title,
-                  style: const TextStyle(
-                    color: StitchTheme.textMuted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: StitchTheme.textMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (widget.icon != null)
+                if (widget.icon != null) ...[
+                  const SizedBox(width: 8),
                   Icon(
                     widget.icon,
                     color: themeColor.withOpacity(0.8),
                     size: 20,
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 16),

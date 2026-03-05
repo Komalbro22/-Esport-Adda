@@ -30,7 +30,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
 
   Future<void> _fetchTournaments() async {
     final response = await _supabase.from('tournaments')
-      .select('id, name')
+      .select('id, title')
       .inFilter('status', ['upcoming', 'ongoing'])
       .order('created_at');
     
@@ -139,7 +139,7 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
                           items: _tournaments.map((t) {
                             return DropdownMenuItem<String>(
                               value: t['id'],
-                              child: Text(t['name']),
+                              child: Text(t['title']),
                             );
                           }).toList(),
                           onChanged: (val) {
