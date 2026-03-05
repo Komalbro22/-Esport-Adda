@@ -1,0 +1,55 @@
+name: Flutter APK Build
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.29.0' # Adjust if needed, latest stable is fine
+
+      - name: Get Dependencies
+        run: |
+          cd esport_user_app
+          flutter pub get
+          cd ../esport_admin_app
+          flutter pub get
+
+      - name: Build User App APK
+        run: |
+          cd esport_user_app
+          flutter build apk --release
+
+      - name: Build Admin App APK
+        run: |
+          cd esport_admin_app
+          flutter build apk --release
+
+      - name: Upload User App APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: esport-adda-apk
+          path: esport_user_app/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Admin App APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: esport-admin-apk
+          path: esport_admin_app/build/app/outputs/flutter-apk/app-release.apk
