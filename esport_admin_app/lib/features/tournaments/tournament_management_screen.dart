@@ -62,6 +62,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final bannerCtrl = TextEditingController();
     final prizeDescCtrl = TextEditingController();
     bool isUploading = false;
+    bool isFeatured = false;
 
     Future<void> pickAndUpload(StateSetter setDialogState) async {
        final picker = ImagePicker();
@@ -258,6 +259,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   ),
                   const SizedBox(height: 12),
                   StitchInput(label: 'Prize Details', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter prize distribution or rules...'),
+                  const SizedBox(height: 20),
+                  SwitchListTile(
+                    title: const Text('FEATURED TOURNAMENT', style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    subtitle: const Text('Show this tournament in the home screen carousel', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                    value: isFeatured,
+                    activeColor: StitchTheme.primary,
+                    activeTrackColor: StitchTheme.primary.withOpacity(0.2),
+                    onChanged: (v) => setDialogState(() => isFeatured = v),
+                  ),
                 ],
               ),
             ),
@@ -284,6 +294,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             'start_time': dt.toIso8601String(),
             'banner_url': bannerCtrl.text.trim().isEmpty ? null : bannerCtrl.text.trim(),
             'prize_description': prizeDescCtrl.text.trim().isEmpty ? null : prizeDescCtrl.text.trim(),
+            'is_featured': isFeatured,
             'created_by': _supabase.auth.currentUser!.id,
           });
           

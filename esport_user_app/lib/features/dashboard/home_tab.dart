@@ -44,6 +44,7 @@ class _HomeTabState extends State<HomeTab> {
         _supabase.from('app_settings').select().limit(1).maybeSingle(),
         _supabase.from('tournaments')
             .select('*, games(name)')
+            .eq('is_featured', true)
             .eq('status', 'upcoming')
             .order('start_time', ascending: true)
             .limit(5),
@@ -75,153 +76,152 @@ class _HomeTabState extends State<HomeTab> {
     final totalBalance = ((_walletStats?['deposit_wallet'] ?? 0) + (_walletStats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                StitchTheme.background.withOpacity(0.9),
-                StitchTheme.background.withOpacity(0.0),
-              ],
-            ),
-          ),
-        ),
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_appSettings != null && _appSettings!['logo_url'] != null) ...[
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(color: StitchTheme.primary.withOpacity(0.2), blurRadius: 10)
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(_appSettings!['logo_url'], height: 32, width: 32, fit: BoxFit.cover),
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            Text(
-              _appSettings?['app_name'] ?? 'Esport Adda', 
-              style: const TextStyle(
-                color: StitchTheme.textMain, 
-                fontWeight: FontWeight.w900, 
-                fontSize: 24,
-                letterSpacing: -1,
-              )
-            ),
-          ],
-        ),
-        actions: [
-          _buildNotificationIcon(),
-          const SizedBox(width: 8),
-          _buildWalletChip(totalBalance),
-          const SizedBox(width: 16),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(-0.8, -0.6),
-            radius: 1.2,
-            colors: [
-              StitchTheme.secondary.withOpacity(0.05),
-              StitchTheme.background,
-            ],
-          ),
-        ),
+      backgroundColor: StitchTheme.background,
+      body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchData,
           color: StitchTheme.primary,
-          child: ListView(
+          child: SingleChildScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 80, 16, 16),
-            children: [
-              // Hero Banner
-              _buildHeroBanner(),
-              
-              const SizedBox(height: 24),
-              
-              // Featured Header
-              if (_featuredTournaments.isNotEmpty) ...[
-                const Row(
-                  children: [
-                    Icon(Icons.star_rounded, color: StitchTheme.primary, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'FEATURED TOURNAMENTS',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: StitchTheme.textMain,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 180,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _featuredTournaments.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final t = _featuredTournaments[index];
-                      return _buildFeaturedCard(t);
-                    },
-                  ),
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Custom Header
+                _buildHeader(totalBalance),
+                
                 const SizedBox(height: 32),
-              ],
-              
-              const Row(
-                children: [
-                  Icon(Icons.grid_view_rounded, color: StitchTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'EXPLORE GAMES',
+                
+                // Featured Tournament Section
+                if (_featuredTournaments.isNotEmpty) ...[
+                  const Text(
+                    'Featured Tournament',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 20,
                       fontWeight: FontWeight.w900,
                       color: StitchTheme.textMain,
-                      letterSpacing: 1.5,
+                      letterSpacing: -0.5,
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Games Grid - Fixed 2 columns for mobile feel
-              if (_games.isEmpty)
-                _buildEmptyState()
-              else 
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.85,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 190,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _featuredTournaments.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        return _buildFeaturedCard(_featuredTournaments[index]);
+                      },
+                    ),
                   ),
-                  itemCount: _games.length,
-                  itemBuilder: (context, index) {
-                    final game = _games[index];
-                    return _buildGameCard(game);
-                  },
-                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1),
-                                                    
-              const SizedBox(height: 40),
-            ],
+                  const SizedBox(height: 32),
+                ],
+                
+                const Text(
+                  'Explore Games',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: StitchTheme.textMain,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Games Grid
+                if (_games.isEmpty)
+                  _buildEmptyState()
+                else 
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.9,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                    ),
+                    itemCount: _games.length,
+                    itemBuilder: (context, index) {
+                      return _buildGameCard(_games[index]);
+                    },
+                  ),
+                                                      
+                const SizedBox(height: 100),
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(String balance) {
+    final user = _supabase.auth.currentUser;
+    return Row(
+      children: [
+        // Profile Avatar
+        GestureDetector(
+          onTap: () => context.push('/edit_profile'),
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: StitchTheme.primaryGradient,
+            ),
+            child: CircleAvatar(
+              radius: 22,
+              backgroundColor: StitchTheme.surface,
+              child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
+            ),
+          ),
+        ),
+        const Spacer(),
+        // Notification Icon
+        _buildNotificationButton(),
+        const SizedBox(width: 16),
+        // Wallet Pill
+        _buildWalletPill(balance),
+      ],
+    );
+  }
+
+  Widget _buildNotificationButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: StitchTheme.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: IconButton(
+        icon: const Icon(Icons.notifications_rounded, color: Color(0xFF94A3B8), size: 22),
+        onPressed: () => context.push('/notifications'),
+      ),
+    );
+  }
+
+  Widget _buildWalletPill(String balance) {
+    return GestureDetector(
+      onTap: () => context.push('/wallet'),
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: StitchTheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.account_balance_wallet_rounded, color: StitchTheme.primary, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              '₹$balance',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ],
         ),
       ),
     );
@@ -347,63 +347,95 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildFeaturedCard(Map<String, dynamic> t) {
+    final double progress = (t['joined_slots'] ?? 0) / (t['total_slots'] ?? 1);
+    
     return GestureDetector(
       onTap: () => context.push('/tournament_detail/${t['id']}'),
       child: Container(
-        width: 300,
+        width: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: StitchTheme.surface,
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            t['banner_url'] != null
-                ? Image.network(t['banner_url'], fit: BoxFit.cover, width: double.infinity, height: double.infinity)
-                : Container(color: StitchTheme.surfaceHighlight),
+            // Background Image
+            if (t['banner_url'] != null)
+              Image.network(t['banner_url'], fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+            else
+              Container(color: StitchTheme.surfaceHighlight),
+            
+            // Gradient Overlay
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
+                  colors: [
+                    Colors.black.withOpacity(0.1),
+                    Colors.black.withOpacity(0.9),
+                  ],
                 ),
               ),
             ),
+            
+            // Logo watermark if available (Using game name as text for now to match style if logo missing)
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Opacity(
+                opacity: 0.8,
+                child: Text(
+                  t['games']['name'].toString().toUpperCase(),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: -1),
+                ),
+              ),
+            ),
+            
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: StitchTheme.primary.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      t['games']['name'].toString().toUpperCase(),
-                      style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w900),
-                    ),
+                  const Text(
+                    'Tournament',
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    t['title'],
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+                    t['title'].toString().toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: -0.5),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.payments_rounded, color: StitchTheme.success, size: 14),
-                      const SizedBox(width: 4),
-                      Text('₹${t['entry_fee']}', style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.bold, fontSize: 12)),
-                      const Spacer(),
-                      Text('${t['joined_slots']}/${t['total_slots']} FILLED', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Entry Fee: ₹${t['entry_fee']}',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      Text(
+                        '${t['joined_slots']}/${t['total_slots']} FILLED',
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w900),
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Progress Bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: SizedBox(
+                      height: 4,
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        valueColor: const AlwaysStoppedAnimation<Color>(StitchTheme.primary),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -419,64 +451,42 @@ class _HomeTabState extends State<HomeTab> {
       onTap: () => context.push('/tournaments/${game['id']}?name=${game['name']}'),
       child: Container(
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
           color: StitchTheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(
-              flex: 5,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  game['logo_url'] != null
-                      ? Image.network(game['logo_url'], fit: BoxFit.cover)
-                      : Container(color: StitchTheme.surfaceHighlight, child: const Icon(Icons.sports_esports, color: StitchTheme.primary, size: 40)),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                alignment: Alignment.center,
-                child: Text(
-                  game['name'].toString().toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            game['logo_url'] != null
+                ? Image.network(game['logo_url'], fit: BoxFit.cover)
+                : Container(color: StitchTheme.surfaceHighlight),
+            
+            // Dark Overlay
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
                 ),
               ),
             ),
+            
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Text(
+                game['name'].toString().toUpperCase(),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.5),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-      ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-       .shimmer(delay: 2.seconds, duration: 2.seconds, color: Colors.white.withOpacity(0.05)),
+      ),
     );
   }
 

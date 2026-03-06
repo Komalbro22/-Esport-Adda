@@ -7,8 +7,7 @@ import 'dart:convert';
 
 class JoinTournamentFormScreen extends StatefulWidget {
   final String tournamentId;
-
-  const JoinTournamentFormScreen({Key? key, required this.tournamentId}) : super(key: key);
+  const JoinTournamentFormScreen({super.key, required this.tournamentId});
 
   @override
   State<JoinTournamentFormScreen> createState() => _JoinTournamentFormScreenState();
@@ -19,6 +18,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
   Map<String, dynamic>? _tournament;
   bool _isLoading = true;
   bool _isJoining = false;
+  double _walletBalance = 0.0;
   
   final TextEditingController _myNameController = TextEditingController();
   final TextEditingController _myUidController = TextEditingController();
@@ -58,6 +58,22 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
         setState(() => _isLoading = false);
         StitchSnackbar.showError(context, 'Failed to load tournament data');
       }
+    }
+    _fetchWalletBalance();
+  }
+
+  Future<void> _fetchWalletBalance() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+      final data = await _supabase.from('profiles').select('wallet_balance').eq('id', user.id).single();
+      if (mounted) {
+        setState(() {
+          _walletBalance = (data['wallet_balance'] as num).toDouble();
+        });
+      }
+    } catch (e) {
+      print('Error fetching wallet balance: $e');
     }
   }
 
@@ -167,26 +183,68 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: StitchTheme.primaryGradient.withOpacity(0.1),
+                  color: const Color(0xFF1A1C24),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      _tournament!['title'].toString().toUpperCase(), 
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
-                      textAlign: TextAlign.center
-                    ),
-                    const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _Badge(text: _tournament!['tournament_type'].toString().toUpperCase()),
-                        const SizedBox(width: 8),
-                        Text(
-                          'ENTRY: ₹${_tournament!['entry_fee']}', 
-                          style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 13)
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A2D36),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.sports_esports_rounded, color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _tournament!['title'].toString(),
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_tournament!['tournament_type'].toString().toUpperCase()} • ${_tournament!['games']['name']?.toString() ?? 'GAME'}',
+                                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(color: Colors.white10),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Entry Fee', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text('₹${_tournament!['entry_fee']}', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 16)),
+                                Text(' / player', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Prize Pool', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                            const SizedBox(height: 4),
+                            const Text('₹5000', style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w900, fontSize: 16)),
+                          ],
                         ),
                       ],
                     ),
@@ -196,109 +254,175 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
               
               const SizedBox(height: 32),
               
-              const Text('PLAYER DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
-              const SizedBox(height: 16),
+              const Text('Enter Player Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+              const SizedBox(height: 20),
               
               // Primary Player Data
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: StitchTheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.stars_rounded, color: StitchTheme.primary, size: 18),
-                        SizedBox(width: 8),
-                        Text('TEAM LEADER (YOU)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    StitchInput(
-                      label: 'IN-GAME NAME',
-                      controller: _myNameController,
-                      hintText: 'Enter your exact nickname',
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'PLAYER UID',
-                      controller: _myUidController,
-                      hintText: 'e.g. 54321098',
-                    ),
-                  ],
-                ),
+              _CustomInput(
+                label: 'In-Game Name (IGN)',
+                controller: _myNameController,
+                hintText: 'e.g. Mortal, Dynamo',
+                icon: Icons.person_outline,
               ),
-
+              const SizedBox(height: 16),
+              _CustomInput(
+                label: 'Player UID',
+                controller: _myUidController,
+                hintText: 'e.g. 5123456789',
+                icon: Icons.numbers_rounded,
+              ),
               if (_teammateControllers.isNotEmpty) ...[
                 const SizedBox(height: 32),
-                const Text('TEAMMATE INFORMATION', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                const SizedBox(height: 16),
+                const Text('Teammate Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                const SizedBox(height: 20),
                 ...List.generate(_teammateControllers.length, (index) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: StitchTheme.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.03)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.person_outline_rounded, color: StitchTheme.textMuted.withOpacity(0.5), size: 18),
-                            const SizedBox(width: 8),
-                            Text('TEAMMATE ${index + 2}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        StitchInput(
-                          label: 'IN-GAME NAME',
-                          controller: _teammateControllers[index],
-                          hintText: 'Enter teammate nickname',
-                        ),
-                      ],
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _CustomInput(
+                      label: 'Teammate ${index + 2} IGN',
+                      controller: _teammateControllers[index],
+                      hintText: 'Enter teammate nickname',
+                      icon: Icons.group_outlined,
                     ),
                   );
                 }),
               ],
 
-              const SizedBox(height: 40),
-              StitchButton(
-                text: 'CONFIRM REGISTRATION',
-                onPressed: _handleJoin,
-                isLoading: _isJoining,
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 32),
+              
+              // Wallet Balance Section
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withOpacity(0.1)),
+                  color: const Color(0xFF1A1C24),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                 ),
-                child: const Row(
+                child: Column(
                   children: [
-                    Icon(Icons.info_outline_rounded, color: Colors.amber, size: 16),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Incorrect details may lead to disqualification without refund.',
-                        style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w500),
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.account_balance_wallet_outlined, color: Colors.white70, size: 18),
+                            const SizedBox(width: 8),
+                            const Text('Wallet Balance', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        Text('₹${_walletBalance.toInt()}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Deduction Amount', style: TextStyle(color: Colors.white54, fontSize: 13)),
+                        Text('- ₹${_tournament!['entry_fee']}', style: const TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Divider(color: Colors.white10),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Remaining Balance', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                        Text('₹${(_walletBalance - (_tournament!['entry_fee'] as num)).toInt()}', style: const TextStyle(color: Colors.cyanAccent, fontSize: 16, fontWeight: FontWeight.w900)),
+                      ],
                     ),
                   ],
                 ),
+              ),
+              
+              const SizedBox(height: 40),
+              
+              // Confirm Button
+              GestureDetector(
+                onTap: _isJoining ? null : _handleJoin,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9042FF),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  alignment: Alignment.center,
+                  child: _isJoining
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Text(
+                              'Confirm & Join',
+                              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Ensure your IGN and UID exactly match your game profile.\nIncorrect details will lead to disqualification without refund.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w500, height: 1.4),
               ),
               const SizedBox(height: 40),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CustomInput extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+
+  const _CustomInput({required this.label, required this.controller, required this.hintText, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1C24),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 16),
+              Icon(icon, color: Colors.white54, size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14, fontWeight: FontWeight.w400),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

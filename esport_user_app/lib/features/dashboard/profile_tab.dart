@@ -229,6 +229,7 @@ class _ProfileTabState extends State<ProfileTab> {
     return Column(
       children: [
         _buildMenuItem(Icons.sports_esports_outlined, 'My Matches', () => context.push('/my_matches')),
+        _buildMenuItem(Icons.leaderboard_rounded, 'Global Leaderboard', () => context.push('/global_leaderboard')),
         _buildMenuItem(Icons.share_outlined, 'Refer & Earn', () => context.push('/referral')),
         _buildMenuItem(Icons.settings_outlined, 'Game Settings', () => context.push('/settings')),
         _buildMenuItem(Icons.help_outline, 'Support', () => context.push('/support')),

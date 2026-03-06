@@ -148,6 +148,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
     final rankCtrl = TextEditingController(text: team['rank']?.toString() ?? '');
     final killsCtrl = TextEditingController(text: team['kills']?.toString() ?? '');
+    final prizeCtrl = TextEditingController(text: team['total_prize']?.toString() ?? '');
 
     StitchDialog.show(
       context: context,
@@ -165,10 +166,19 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
           double perKillReward = (_tournament!['per_kill_reward'] as num?)?.toDouble() ?? 0;
           double killPrize = kills * perKillReward;
-          double totalPrize = rankPrize + killPrize;
+          double computedTotal = rankPrize + killPrize;
+          
+          // Auto-update prize text if it's empty OR if it matches previous computation
+          // This gives standard calculation while still allowing manual override.
+          if (prizeCtrl.text.isEmpty) {
+             prizeCtrl.text = computedTotal.toInt().toString();
+          }
 
           void updateValues() {
-            setDialogState(() {});
+            setDialogState(() {
+               computedTotal = rankPrize + killPrize;
+               prizeCtrl.text = computedTotal.toInt().toString();
+            });
           }
 
           return Column(
@@ -188,6 +198,12 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                 keyboardType: TextInputType.number,
                 onChanged: (v) => updateValues(),
               ),
+              const SizedBox(height: 12),
+              StitchInput(
+                label: 'Prize Winnings (₹)', 
+                controller: prizeCtrl, 
+                keyboardType: TextInputType.number,
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -200,7 +216,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Kill Prize:', style: TextStyle(color: StitchTheme.textMuted)),
+                        const Text('Computed Kill Prize:', style: TextStyle(color: StitchTheme.textMuted)),
                         Text('₹$killPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
                       ]
                     ),
@@ -208,16 +224,8 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                     Row(
                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                        children: [
-                         const Text('Rank Prize:', style: TextStyle(color: StitchTheme.textMuted)),
+                         const Text('Computed Rank Prize:', style: TextStyle(color: StitchTheme.textMuted)),
                          Text('₹$rankPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
-                       ]
-                    ),
-                    const Divider(color: StitchTheme.surfaceHighlight),
-                    Row(
-                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                       children: [
-                         const Text('Total Prize:', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
-                         Text('₹$totalPrize', style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.bold, fontSize: 18)),
                        ]
                     ),
                   ],
@@ -237,21 +245,12 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
         try {
           int rank = int.parse(rankCtrl.text);
           int kills = int.parse(killsCtrl.text);
-          
-          double rankPrize = 0;
-          final Map<String, dynamic> rankPrizes = _tournament!['rank_prizes'] ?? {};
-          if (rankPrizes.containsKey(rank.toString())) {
-             rankPrize = (rankPrizes[rank.toString()] as num).toDouble();
-          }
-
-          double perKillReward = (_tournament!['per_kill_reward'] as num?)?.toDouble() ?? 0;
-          double killPrize = kills * perKillReward;
-          double totalPrize = rankPrize + killPrize;
+          double userPrize = prizeCtrl.text.isEmpty ? 0 : double.parse(prizeCtrl.text);
 
           await _supabase.from('joined_teams').update({
             'rank': rank,
             'kills': kills,
-            'total_prize': totalPrize,
+            'total_prize': userPrize,
           }).eq('id', team['id']);
           
           if (mounted) {

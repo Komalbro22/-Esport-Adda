@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:intl/intl.dart';
+import 'dart:async';
 
 class TournamentDetailScreen extends StatefulWidget {
   final String tournamentId;
@@ -80,309 +78,292 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
     final t = _tournament!;
     final status = t['status'];
-    final bool isFull = t['joined_slots'] >= t['total_slots'];
 
     return Scaffold(
-      backgroundColor: StitchTheme.background,
-      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF13151D),
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                StitchTheme.background.withOpacity(0.8),
-                StitchTheme.background.withOpacity(0.0),
-              ],
-            ),
-          ),
-        ),
-        title: Text(t['title'].toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
+        title: const Text('Tournament Details', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFF13151D),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
-      body: Scrollbar(
-        controller: _scrollController,
-        child: ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          children: [
-          // Banner Section with Live Indicator
-          Stack(
-            children: [
-              if (t['banner_url'] != null && t['banner_url'].toString().isNotEmpty)
-                Image.network(
-                  t['banner_url'], 
-                  height: 280, 
-                  width: double.infinity, 
-                  fit: BoxFit.cover, 
-                  errorBuilder: (c,e,s) => Container(height: 280, color: StitchTheme.surfaceHighlight, child: const Icon(Icons.image_not_supported, color: StitchTheme.textMuted))
-                )
-              else
-                Container(height: 280, decoration: const BoxDecoration(gradient: StitchTheme.primaryGradient)),
-              
-              Positioned.fill(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double maxWidth = constraints.maxWidth > 700 ? 700 : constraints.maxWidth;
+          
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        StitchTheme.background.withOpacity(0.5),
-                        StitchTheme.background,
-                      ],
-                    ),
+                    color: const Color(0xFF1A1C24),
+                    borderRadius: BorderRadius.circular(24),
                   ),
-                ),
-              ),
-              
-              if (status == 'ongoing')
-                const Positioned(
-                  top: 100,
-                  right: 16,
-                  child: LiveIndicator(),
-                ),
-            ],
-          ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                   // Metadata Header
-                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                       Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                            Text(t['games']['name']?.toString().toUpperCase() ?? '', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
-                            const SizedBox(height: 6),
-                            Text(t['title'], style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 26, letterSpacing: -0.5)),
-                         ],
-                       ),
-                       Container(
-                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                         decoration: BoxDecoration(
-                           color: StitchTheme.primary.withOpacity(0.1),
-                           borderRadius: BorderRadius.circular(8),
-                           border: Border.all(color: StitchTheme.primary.withOpacity(0.3)),
-                         ),
-                         child: Text(
-                           t['tournament_type'].toString().toUpperCase(),
-                           style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 10),
-                         ),
-                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Slot Progress Bar
-                  SlotProgressBar(joined: t['joined_slots'] ?? 0, total: t['total_slots'] ?? 0),
-                  
-                  const SizedBox(height: 24),
-
-                  // Countdown or Start Time
-                  if (status == 'upcoming' && t['start_time'] != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.03),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
-                      ),
-                      child: Column(
+                      // Banner Image
+                      Stack(
                         children: [
-                          const Text('TOURNAMENT STARTS IN', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                          const SizedBox(height: 16),
-                          TournamentCountdown(startTime: DateTime.parse(t['start_time'])),
+                          Container(
+                            height: 220,
+                            width: double.infinity,
+                            decoration: BoxDecoration(color: const Color(0xFF2A2D36)),
+                            child: t['banner_url'] != null && t['banner_url'].toString().isNotEmpty
+                                ? Image.network(t['banner_url'], fit: BoxFit.cover)
+                                : const Icon(Icons.image_not_supported, color: Colors.white24, size: 40),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Colors.transparent, const Color(0xFF1A1C24).withOpacity(0.9), const Color(0xFF1A1C24)],
+                                  stops: const [0.5, 0.9, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (status == 'ongoing')
+                            const Positioned(
+                              top: 16,
+                              left: 16,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle, color: Colors.redAccent, size: 10),
+                                  SizedBox(width: 6),
+                                  Text('Live Now', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Info Grid
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ModernInfoCard(icon: Icons.payments_rounded, title: 'Entry Fee', value: '₹${t['entry_fee']}'),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _ModernInfoCard(icon: Icons.radar_rounded, title: 'Per Kill', value: '₹${t['per_kill_reward']}'),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 32),
-                  
-                  // Description
-                  _SectionHeader(title: 'Overview'),
-                  const SizedBox(height: 12),
-                  Text(t['description'] ?? 'No description available.', style: const TextStyle(color: StitchTheme.textMuted, height: 1.6, fontSize: 14)),
-                  
-                  if (t['prize_description'] != null) ...[
-                    const SizedBox(height: 32),
-                    _SectionHeader(title: 'Prize Pool'),
-                    const SizedBox(height: 12),
-                    Text(t['prize_description'], style: const TextStyle(color: StitchTheme.textMuted, height: 1.6, fontSize: 14)),
-                  ],
-
-                  if (t['rank_prizes'] != null) ...[
-                    const SizedBox(height: 32),
-                    _SectionHeader(title: 'Prize Distribution'),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: StitchTheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        children: (t['rank_prizes'] as Map<String, dynamic>).entries.map((e) {
-                          final rankNum = int.tryParse(e.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-                          final isTop3 = rankNum <= 3 && rankNum > 0;
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: isTop3 ? StitchTheme.primary.withOpacity(0.05) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
+                      
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Game Name Pill
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                t['games']['name']?.toString().toUpperCase() ?? 'GAME',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            const SizedBox(height: 12),
+                            // Title
+                            Text(
+                              t['title'],
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 22, height: 1.2),
+                            ),
+                            
+                            const SizedBox(height: 24),
+
+                            // Countdown Starts In
+                            if (status == 'upcoming' && t['start_time'] != null) ...[
+                              const Text('STARTS IN', style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1.5)),
+                              const SizedBox(height: 12),
+                              _CustomCountdownBlock(startTime: DateTime.parse(t['start_time'])),
+                              const SizedBox(height: 32),
+                            ],
+
+                            // Circular Info Pills (Mode, Entry Fee, Per Kill)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isTop3 ? Icons.workspace_premium_rounded : Icons.military_tech_rounded, 
-                                      color: isTop3 ? (rankNum == 1 ? Colors.amber : StitchTheme.primary) : StitchTheme.textMuted, 
-                                      size: 20
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      e.key.startsWith('Rank') ? e.key : 'Rank ${e.key}', 
-                                      style: TextStyle(
-                                        color: isTop3 ? StitchTheme.textMain : StitchTheme.textMuted, 
-                                        fontWeight: isTop3 ? FontWeight.w900 : FontWeight.normal, 
-                                        fontSize: 14
-                                      )
-                                    ),
-                                  ],
+                                _CircularPill(icon: Icons.groups_rounded, label: 'Mode', value: t['tournament_type'].toString()),
+                                _CircularPill(icon: Icons.payments_rounded, label: 'Entry Fee', value: '₹${t['entry_fee']}'),
+                                _CircularPill(icon: Icons.radar_rounded, label: 'Per Kill', value: '₹${t['per_kill_reward']}'),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 32),
+                            const Divider(color: Colors.white10),
+                            const SizedBox(height: 24),
+                    
+                    // Prize Pool Section
+                    if (t['rank_prizes'] != null) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.emoji_events_rounded, color: Colors.amber, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Prize Pool', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        children: (t['rank_prizes'] as Map<String, dynamic>).entries.map((e) {
+                          final rankStr = e.key.replaceAll(RegExp(r'[^0-9]'), '');
+                          final rankNum = int.tryParse(rankStr) ?? 0;
+                          
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2A2D36),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    rankNum > 0 ? rankNum.toString() : '-',
+                                    style: const TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
-                                Text('₹${e.value}', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 16)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    rankNum == 1 ? 'Winner' : rankNum == 2 ? 'Runner Up' : rankNum == 3 ? '3rd Place' : 'Rank $rankNum',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                  ),
+                                ),
+                                Text(
+                                  '₹${e.value}',
+                                  style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w900, fontSize: 14),
+                                )
                               ],
                             ),
                           );
                         }).toList(),
                       ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 32),
-                  _SectionHeader(title: 'Participants'),
-                  const SizedBox(height: 12),
-                  if (_participants.isEmpty)
-                    const StitchCard(child: Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No entries yet. Be the first!', style: TextStyle(color: StitchTheme.textMuted)))))
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        color: StitchTheme.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withOpacity(0.05)),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        children: _participants.map((p) {
-                          final user = p['users'];
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: StitchTheme.primary.withOpacity(0.1),
-                              child: Text(user['name']?[0] ?? '?', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
-                            ),
-                            title: Text(user['name'] ?? 'Player', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)),
-                            subtitle: Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
-                            trailing: const Icon(Icons.check_circle_rounded, color: StitchTheme.success, size: 16),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-
-                  if (_hasJoined && status == 'ongoing') ...[
-                    const SizedBox(height: 32),
-                    _SectionHeader(title: 'Match Credentials'),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: StitchTheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        children: [
-                          _ModernCopyRow(label: 'Room ID', value: t['room_id'] ?? 'WAITING...'),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Divider(color: Colors.white10),
-                          ),
-                          _ModernCopyRow(label: 'Password', value: t['room_password'] ?? 'WAITING...'),
-                        ]
-                      )
-                    )
-                  ],
-
-                  if (status == 'completed') ...[
-                    const SizedBox(height: 32),
-                    _SectionHeader(title: 'Final Statistics'),
-                    const SizedBox(height: 12),
-                    if (_hasJoined && _joinedTeamData != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: StitchTheme.primaryGradient.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _ModernStatTile(label: 'RANK', value: '#${_joinedTeamData!['rank'] ?? '-'}'),
-                            _ModernStatTile(label: 'KILLS', value: '${_joinedTeamData!['kills'] ?? '0'}'),
-                            _ModernStatTile(label: 'PRIZE', value: '₹${_joinedTeamData!['total_prize'] ?? '0'}', highlight: true),
-                          ],
-                        ),
-                      ),
-                    ] else ...[
-                      const StitchCard(child: Center(child: Padding(
-                        padding: EdgeInsets.all(24.0),
-                        child: Text('Tournament has ended.', style: TextStyle(color: StitchTheme.textMuted)),
-                      ))),
+                      const SizedBox(height: 24),
+                      const Divider(color: Colors.white10),
                     ],
+
+                    const SizedBox(height: 24),
+                    // Rules & Regulations
+                    Row(
+                      children: [
+                        const Icon(Icons.gavel_rounded, color: Color(0xFF94A3B8), size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Rules & Regulations', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _RulesList(description: t['description'] ?? 'No rules description available.'),
+                    const SizedBox(height: 32),
+
+                    const SizedBox(height: 32),
+                    _SectionHeader(title: 'Participants'),
+                    const SizedBox(height: 12),
+                    if (_participants.isEmpty)
+                      const StitchCard(child: Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No entries yet. Be the first!', style: TextStyle(color: StitchTheme.textMuted)))))
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          color: StitchTheme.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: _participants.map((p) {
+                            final user = p['users'];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: StitchTheme.primary.withOpacity(0.1),
+                                child: Text(user['name']?[0] ?? '?', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+                              ),
+                              title: Text(user['name'] ?? 'Player', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)),
+                              subtitle: Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                              trailing: const Icon(Icons.check_circle_rounded, color: StitchTheme.success, size: 16),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                    if (_hasJoined && status == 'ongoing') ...[
+                      const SizedBox(height: 16),
+                      const Text('ROOM DETAILS', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF13151D),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withOpacity(0.05)),
+                        ),
+                        child: Column(
+                          children: [
+                            _ModernCopyRow(label: 'Room ID', value: t['room_id'] ?? 'WAITING...'),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Divider(color: Colors.white10),
+                            ),
+                            _ModernCopyRow(label: 'Password', value: t['room_password'] ?? 'WAITING...'),
+                          ]
+                        )
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+
+                    if (status == 'completed') ...[
+                      const SizedBox(height: 32),
+                      _SectionHeader(title: 'Final Statistics'),
+                      const SizedBox(height: 12),
+                      if (_hasJoined && _joinedTeamData != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            gradient: StitchTheme.primaryGradient.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _ModernStatTile(label: 'RANK', value: '#${_joinedTeamData!['rank'] ?? '-'}'),
+                              _ModernStatTile(label: 'KILLS', value: '${_joinedTeamData!['kills'] ?? '0'}'),
+                              _ModernStatTile(label: 'PRIZE', value: '₹${_joinedTeamData!['total_prize'] ?? '0'}', highlight: true),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        const StitchCard(
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Text('Tournament has ended.', style: TextStyle(color: StitchTheme.textMuted)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 120),
                   ],
-                  const SizedBox(height: 140),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _buildActionBtn(),
-    );
-  }
+    ),
+  );
+},
+),
+floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+floatingActionButton: _buildActionBtn(),
+);
+}
 
   Widget? _buildActionBtn() {
     final status = _tournament!['status'];
@@ -390,31 +371,92 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
     if (_hasJoined) {
       if (status == 'upcoming') {
-        return const StitchButton(text: 'Joined Successfully', isSecondary: true);
+        return _actionContainer(
+          text: 'JOINED SUCCESSFULLY',
+          color: Colors.green,
+          icon: Icons.check_circle_rounded,
+        );
+      }
+      if (status == 'ongoing') {
+        return _actionContainer(
+          text: 'JOIN MATCH',
+          color: Colors.blueAccent,
+          icon: Icons.gamepad_rounded,
+          onTap: () {
+            StitchSnackbar.showSuccess(context, 'Launching Match...');
+          }
+        );
       }
       return null;
     }
 
     if (status == 'upcoming') {
       if (isFull) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-          child: StitchButton(text: 'Full', isSecondary: true),
+        return _actionContainer(
+          text: 'TOURNAMENT FULL',
+          color: const Color(0xFF2A2D36),
+          textColor: Colors.white54,
         );
       }
-      return Container(
-        width: 250,
-        height: 80,
-        padding: const EdgeInsets.only(bottom: 20),
-        child: StitchButton(
-          text: 'Join (₹${_tournament!['entry_fee']})',
-          isLoading: _isJoining,
-          onPressed: _navigateToJoin,
+      
+      return GestureDetector(
+        onTap: _isJoining ? null : _navigateToJoin,
+        child: Container(
+          width: 320,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.blueAccent,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: _isJoining 
+            ? const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+            : Row(
+            children: [
+              const Expanded(
+                child: Center(
+                  child: Text('Join Tournament', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Text('- ₹${_tournament!['entry_fee']}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+            ],
+          ),
         ),
       );
     }
     
-    return const SizedBox.shrink();
+    return null;
+  }
+
+  Widget _actionContainer({required String text, required Color color, Color textColor = Colors.white, IconData? icon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 320,
+        height: 56,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16)),
+            if (icon != null) ...[
+              const SizedBox(width: 8),
+              Icon(icon, color: textColor, size: 20),
+            ]
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -435,34 +477,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _ModernInfoCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-  const _ModernInfoCard({required this.icon, required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: StitchTheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: StitchTheme.primary, size: 20),
-          const SizedBox(height: 12),
-          Text(title, style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 18)),
-        ],
-      ),
-    );
-  }
-}
 
 class _ModernCopyRow extends StatelessWidget {
   final String label;
@@ -476,17 +490,175 @@ class _ModernCopyRow extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.5)),
+            Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
           ],
         ),
-        IconButton(
-          onPressed: () {
-            // Copy logic
-          }, 
-          icon: const Icon(Icons.copy_all_rounded, size: 22, color: StitchTheme.primary)
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F222A),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: IconButton(
+            onPressed: () {}, 
+            icon: const Icon(Icons.copy_all_rounded, size: 20, color: Colors.blueAccent)
+          ),
         )
+      ],
+    );
+  }
+}
+
+class _RulesList extends StatelessWidget {
+  final String description;
+  const _RulesList({required this.description});
+  @override
+  Widget build(BuildContext context) {
+    // Basic split for demo purposes, assume newlines separate rules
+    final rules = description.split('\n').where((r) => r.trim().isNotEmpty).toList();
+    if (rules.isEmpty) {
+      rules.add('Room ID and Password will be shared 15 minutes before match start.');
+      rules.add('Hackers/Emulator players will be immediately disqualified.');
+      rules.add('Ensure your in-game name matches your registered name.');
+      rules.add('Any kind of teaming up with opponent squads is strictly prohibited.');
+    }
+
+    return Column(
+      children: rules.map((r) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(Icons.check_circle_rounded, color: Colors.blueAccent, size: 16),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  r.trim(),
+                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.5),
+                ),
+              )
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _CustomCountdownBlock extends StatefulWidget {
+  final DateTime startTime;
+  const _CustomCountdownBlock({required this.startTime});
+
+  @override
+  State<_CustomCountdownBlock> createState() => _CustomCountdownBlockState();
+}
+
+class _CustomCountdownBlockState extends State<_CustomCountdownBlock> {
+  late Timer _timer;
+  Duration _timeLeft = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateTime();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+  }
+
+  void _updateTime() {
+    if (mounted) {
+      setState(() {
+        final now = DateTime.now();
+        if (widget.startTime.isAfter(now)) {
+          _timeLeft = widget.startTime.difference(now);
+        } else {
+          _timeLeft = Duration.zero;
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _TimeCircle(value: _timeLeft.inDays, label: 'Days'),
+        _TimeCircle(value: _timeLeft.inHours.remainder(24), label: 'Hours'),
+        _TimeCircle(value: _timeLeft.inMinutes.remainder(60), label: 'Mins'),
+        _TimeCircle(value: _timeLeft.inSeconds.remainder(60), label: 'Secs'),
+      ],
+    );
+  }
+}
+
+class _TimeCircle extends StatelessWidget {
+  final int value;
+  final String label;
+  const _TimeCircle({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            color: const Color(0xFF13151D),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            value.toString().padLeft(2, '0'),
+            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+}
+
+class _CircularPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _CircularPill({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF13151D),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
+          ),
+          child: Icon(icon, color: Colors.blueAccent, size: 24),
+        ),
+        const SizedBox(height: 12),
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 4),
+        Text(
+          value.toUpperCase(),
+          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900),
+        ),
       ],
     );
   }
