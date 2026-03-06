@@ -524,9 +524,9 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                   ),
                 ),
               ),
-            );
-          }
-        ),
+            ),
+          );
+        }
       ),
     );
   }
@@ -552,6 +552,5 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
       case 'completed': return StitchTheme.success;
       default: return StitchTheme.textMuted;
     }
-  }
   }
 }

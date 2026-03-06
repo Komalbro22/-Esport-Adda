@@ -422,6 +422,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           );
         }
       ),
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddDialog,
         backgroundColor: StitchTheme.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.black),
