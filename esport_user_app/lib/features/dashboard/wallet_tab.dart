@@ -303,16 +303,20 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     final totalBal = depositBal + winningBal;
 
     return Scaffold(
+      backgroundColor: StitchTheme.background,
       appBar: AppBar(
-        title: const Text('My Wallet', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('FINANCIAL HUB', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: StitchTheme.primary,
+          indicatorWeight: 3,
           labelColor: StitchTheme.primary,
           unselectedLabelColor: StitchTheme.textMuted,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
           tabs: const [
-            Tab(text: 'Summary'),
-            Tab(text: 'Transactions'),
+            Tab(text: 'OVERVIEW'),
+            Tab(text: 'HISTORY'),
           ],
         ),
       ),
@@ -327,123 +331,280 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   }
 
   Widget _buildSummary(dynamic depositBal, dynamic winningBal, dynamic totalBal) {
-    return RefreshIndicator(
-      onRefresh: _fetchWalletData,
-      color: StitchTheme.primary,
-      backgroundColor: StitchTheme.surface,
+    final ScrollController summaryScrollController = ScrollController();
+    
+    return Scrollbar(
+      controller: summaryScrollController,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        controller: summaryScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
         children: [
-          StitchStatCard(
-            title: 'Total Balance',
-            value: '₹${totalBal.toStringAsFixed(2)}',
-            icon: Icons.account_balance_wallet,
+          // Total Balance Card
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              gradient: StitchTheme.primaryGradient,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: StitchTheme.primary.withOpacity(0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                )
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'TOTAL BALANCE',
+                  style: TextStyle(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5)
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '₹${totalBal.toStringAsFixed(2)}',
+                  style: const TextStyle(color: Colors.black, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: -1)
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.verified_user_rounded, color: Colors.black54, size: 14),
+                      SizedBox(width: 8),
+                      Text('SECURE WALLET', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
+                    ],
+                  ),
+                )
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
+          
+          const SizedBox(height: 24),
+          
           Row(
             children: [
               Expanded(
-                child: StitchStatCard(
-                  title: 'Deposit',
+                child: _BalanceSubCard(
+                  title: 'DEPOSIT',
                   value: '₹${depositBal.toStringAsFixed(2)}',
+                  icon: Icons.account_balance_rounded,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: StitchStatCard(
-                  title: 'Winning',
+                child: _BalanceSubCard(
+                  title: 'WINNINGS',
                   value: '₹${winningBal.toStringAsFixed(2)}',
-                  color: StitchTheme.success,
+                  icon: Icons.emoji_events_rounded,
+                  isHighlight: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          
+          const SizedBox(height: 40),
+          
+          const Text('QUICK ACTIONS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+          const SizedBox(height: 16),
+          
           Row(
             children: [
               Expanded(
                 child: StitchButton(
-                  text: 'Add Money', 
+                  text: 'ADD CASH', 
                   onPressed: _showAddMoney,
                 )
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: StitchButton(
-                  text: 'Withdraw', 
+                  text: 'WITHDRAW', 
                   isSecondary: true,
                   onPressed: _showWithdrawMoney,
                 )
               ),
             ],
-          )
+          ),
+          
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: StitchTheme.surfaceHighlight,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.support_agent_rounded, color: StitchTheme.primary),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('24/7 SUPPORT', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14)),
+                      SizedBox(height: 4),
+                      Text('Facing payment issues?', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildTransactions() {
-    if (_transactions.isEmpty) return const Center(child: Text('No transactions yet.', style: TextStyle(color: StitchTheme.textMuted)));
+    if (_transactions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history_rounded, size: 64, color: StitchTheme.textMuted.withOpacity(0.2)),
+            const SizedBox(height: 16),
+            const Text('NO HISTORY YET', style: TextStyle(color: StitchTheme.textMuted, fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
+          ],
+        )
+      );
+    }
+    
+    final ScrollController txScrollController = ScrollController();
     
     return RefreshIndicator(
       onRefresh: _fetchWalletData,
-        color: StitchTheme.primary,
-        backgroundColor: StitchTheme.surface,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: _transactions.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final tx = _transactions[index];
-          final type = tx['type'].toString();
-          final isCredit = ['deposit', 'tournament_win', 'referral_bonus'].contains(type);
-          final status = tx['status']?.toString() ?? 'completed';
-          final isPending = status == 'pending';
-          final isRejected = status == 'rejected';
-          
-          return StitchCard(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: (isCredit ? StitchTheme.success : StitchTheme.error).withOpacity(0.1), shape: BoxShape.circle),
-                  child: Icon(isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, color: isCredit ? StitchTheme.success : StitchTheme.error),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      color: StitchTheme.primary,
+      backgroundColor: StitchTheme.surface,
+      child: Scrollbar(
+        controller: txScrollController,
+        child: ListView.separated(
+          controller: txScrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          itemCount: _transactions.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final tx = _transactions[index];
+            final type = tx['type'].toString();
+            final isCredit = ['deposit', 'tournament_win', 'referral_bonus'].contains(type);
+            final status = tx['status']?.toString() ?? 'completed';
+            final isPending = status == 'pending';
+            
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: StitchTheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isPending ? StitchTheme.warning.withOpacity(0.1) : Colors.white.withOpacity(0.03)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: (isCredit ? StitchTheme.success : StitchTheme.error).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isCredit ? Icons.add_rounded : Icons.remove_rounded, 
+                      color: isCredit ? StitchTheme.success : StitchTheme.error,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          type.replaceAll('_', ' ').toUpperCase(), 
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('MMM dd • HH:mm').format(DateTime.parse(tx['created_at']).toLocal()), 
+                          style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)
+                        ),
+                      ],
+                    )
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Row(
-                        children: [
-                          Text(type.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)),
-                          if (status != 'completed') ...[
-                             const SizedBox(width: 8),
-                             StitchBadge(
-                               text: status,
-                               color: isPending ? StitchTheme.warning : StitchTheme.error,
-                             )
-                          ]
-                        ],
+                      Text(
+                        '${isCredit ? '+' : '-'} ₹${tx['amount']}',
+                        style: TextStyle(
+                          color: isCredit ? StitchTheme.success : StitchTheme.error,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16
+                        )
                       ),
-                      const SizedBox(height: 4),
-                      Text(DateFormat('MMM dd, HH:mm').format(DateTime.parse(tx['created_at']).toLocal()), style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                      if (status != 'completed') ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            color: status == 'pending' ? StitchTheme.warning : StitchTheme.error,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1
+                          ),
+                        )
+                      ]
                     ],
                   )
-                ),
-                Text(
-                  '${isCredit ? '+' : '-'}₹${tx['amount']}',
-                  style: TextStyle(
-                    color: isCredit ? StitchTheme.success : StitchTheme.error,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16
-                  )
-                )
-              ],
-            )
-          );
-        }
+                ],
+              )
+            );
+          }
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceSubCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final bool isHighlight;
+
+  const _BalanceSubCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    this.isHighlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: StitchTheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: isHighlight ? StitchTheme.success : StitchTheme.textMuted.withOpacity(0.5), size: 20),
+          const SizedBox(height: 16),
+          Text(title, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        ],
       ),
     );
   }

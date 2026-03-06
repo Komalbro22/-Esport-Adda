@@ -81,31 +81,62 @@ class _ProfileTabState extends State<ProfileTab> {
     if (_isLoading) return const Center(child: StitchLoading());
     if (_userData == null) return const Center(child: StitchError(message: 'Failed to load profile'));
 
-    return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+    return RefreshIndicator(
+      onRefresh: _fetchProfileData,
+      color: StitchTheme.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
-            // Profile Header
-            _buildHeader(),
+            // Profile Header with Background
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    gradient: StitchTheme.primaryGradient,
+                  ),
+                  child: Opacity(
+                    opacity: 0.1,
+                    child: Icon(Icons.videogame_asset_rounded, size: 200, color: Colors.white),
+                  ),
+                ),
+                Positioned(
+                  bottom: -50,
+                  child: _buildAvatar(),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 60),
+            
+            _buildProfileInfo(),
+            
             const SizedBox(height: 32),
             
-            // Stats Row
-            _buildStats(),
-            const SizedBox(height: 32),
-            
-            // Menu Items
-            _buildMenu(),
-            
-            const SizedBox(height: 40),
-            StitchButton(
-              text: 'Logout',
-              onPressed: () async {
-                await _supabase.auth.signOut();
-                if (mounted) context.go('/login');
-              },
-              backgroundColor: Colors.red.withOpacity(0.1),
-              textColor: Colors.red,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  _buildStats(),
+                  const SizedBox(height: 32),
+                  _buildMenu(),
+                  const SizedBox(height: 40),
+                  StitchButton(
+                    text: 'LOGOUT',
+                    onPressed: () async {
+                      await _supabase.auth.signOut();
+                      if (mounted) context.go('/login');
+                    },
+                    backgroundColor: Colors.red.withOpacity(0.05),
+                    textColor: Colors.red,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ],
         ),
@@ -113,48 +144,70 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildAvatar() {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: StitchTheme.background, width: 6),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 60,
+        backgroundColor: StitchTheme.surfaceHighlight,
+        backgroundImage: _userData!['avatar_url'] != null 
+            ? NetworkImage(_userData!['avatar_url']) 
+            : null,
+        child: _userData!['avatar_url'] == null 
+            ? const Icon(Icons.person, size: 60, color: StitchTheme.primary) 
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildProfileInfo() {
     final joinedDate = _userData!['created_at'] != null 
         ? DateFormat('MMMM yyyy').format(DateTime.parse(_userData!['created_at']))
         : 'Unknown';
 
     return Column(
       children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: StitchTheme.surfaceHighlight,
-          backgroundImage: _userData!['avatar_url'] != null 
-              ? NetworkImage(_userData!['avatar_url']) 
-              : null,
-          child: _userData!['avatar_url'] == null 
-              ? const Icon(Icons.person, size: 50, color: StitchTheme.primary) 
-              : null,
-        ),
-        const SizedBox(height: 16),
         Text(
           _userData!['name'] ?? 'User Name',
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: StitchTheme.textMain),
+          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: StitchTheme.textMain, letterSpacing: -0.5),
         ),
+        const SizedBox(height: 6),
         Text(
           '@${_userData!['username'] ?? 'username'}',
-          style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w500),
+          style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
         ),
-        const SizedBox(height: 8),
-        Text(
-          'Joined $joinedDate',
-          style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.calendar_today_rounded, size: 12, color: StitchTheme.textMuted.withOpacity(0.5)),
+            const SizedBox(width: 6),
+            Text(
+              'Gamer since $joinedDate',
+              style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        StitchButton(
-          text: 'Edit Profile',
-          isSecondary: true,
-          onPressed: () async {
-            final result = await context.push('/edit_profile');
-            if (result == true) {
-              setState(() => _isLoading = true);
-              _fetchProfileData();
-            }
-          },
+        const SizedBox(height: 24),
+        SizedBox(
+          width: 200,
+          child: StitchButton(
+            text: 'EDIT PROFILE',
+            isSecondary: true,
+            onPressed: () async {
+              final result = await context.push('/edit_profile');
+              if (result == true) {
+                setState(() => _isLoading = true);
+                _fetchProfileData();
+              }
+            },
+          ),
         ),
       ],
     );

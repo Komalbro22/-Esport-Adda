@@ -130,6 +130,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return const Scaffold(body: StitchLoading());
     }
     
+    final ScrollController scrollController = ScrollController();
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Edit Profile'),
@@ -138,68 +140,72 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: StitchTheme.surfaceHighlight,
-                  backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                  child: _avatarUrl == null 
-                      ? const Icon(Icons.person, size: 60, color: StitchTheme.primary) 
-                      : null,
-                ),
-                Positioned(
-                  bottom: 0,
-                  right: -10,
-                  child: GestureDetector(
-                    onTap: _isSaving ? null : _pickAndUploadImage,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: StitchTheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Tap the camera icon to upload a profile logo', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-            
-            const SizedBox(height: 32),
-            
-            StitchCard(
-              child: Column(
+      body: Scrollbar(
+        controller: scrollController,
+        child: SingleChildScrollView(
+          controller: scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  StitchInput(
-                    label: 'Name',
-                    controller: _nameCtrl,
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: StitchTheme.surfaceHighlight,
+                    backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+                    child: _avatarUrl == null 
+                        ? const Icon(Icons.person, size: 60, color: StitchTheme.primary) 
+                        : null,
                   ),
-                  const SizedBox(height: 16),
-                  StitchInput(
-                    label: 'Username',
-                    controller: _usernameCtrl,
-                    // Typically username shouldn't change to prevent collision, but keeping it visible
-                  ),
-                  const SizedBox(height: 32),
-                  if (_isSaving)
-                    const Center(child: StitchLoading())
-                  else
-                    StitchButton(
-                      text: 'Save Changes',
-                      onPressed: _saveProfile,
+                  Positioned(
+                    bottom: 0,
+                    right: -10,
+                    child: GestureDetector(
+                      onTap: _isSaving ? null : _pickAndUploadImage,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: StitchTheme.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      ),
                     ),
+                  ),
                 ],
-              )
-            ),
-          ],
+              ),
+              const SizedBox(height: 12),
+              const Text('Tap the camera icon to upload a profile logo', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+              
+              const SizedBox(height: 32),
+              
+              StitchCard(
+                child: Column(
+                  children: [
+                    StitchInput(
+                      label: 'Name',
+                      controller: _nameCtrl,
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Username',
+                      controller: _usernameCtrl,
+                    ),
+                    const SizedBox(height: 32),
+                    if (_isSaving)
+                      const Center(child: StitchLoading())
+                    else
+                      StitchButton(
+                        text: 'Save Changes',
+                        onPressed: _saveProfile,
+                      ),
+                  ],
+                )
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,37 +1,41 @@
 import 'package:flutter/material.dart';
 
 class StitchTheme {
-  // Vibrant, modern color palette
-  static const Color primary = Color(0xFF6A5AE0); // Indigo/Purple
-  static const Color secondary = Color(0xFF8F7CFF); // Light Purple
-  static const Color accent = Color(0xFF4DA3FF); // Accent Blue
+  // Ultra-modern, premium neon palette
+  static const Color primary = Color(0xFF00FBFF); // Neon Cyan
+  static const Color secondary = Color(0xFF6E00FF); // Electric Purple
+  static const Color accent = Color(0xFF00FBFF); 
   
-  static const Color background = Color(0xFF0B1220); // Deep Dark Blue
-  static const Color surface = Color(0xFF141C2F); // Card Background
-  static const Color surfaceHighlight = Color(0xFF1E293B); // Slightly lighter
+  static const Color background = Color(0xFF070912); // Deep Space Black
+  static const Color surface = Color(0xFF0E1120); // Dark Glass
+  static const Color surfaceHighlight = Color(0xFF1B1F35); 
   
-  static const Color textMain = Color(0xFFF8FAFC); // Slate 50
-  static const Color textMuted = Color(0xFF94A3B8); // Slate 400
+  static const Color textMain = Color(0xFFFFFFFF); 
+  static const Color textMuted = Color(0xFF8B95B7); // Modern Slate
   
-  static const Color error = Color(0xFFEF4444); // Danger
-  static const Color success = Color(0xFF22C55E); // Success
-  static const Color warning = Color(0xFFF59E0B); // Warning
+  static const Color error = Color(0xFFFF2E63); // Neon Red/Pink
+  static const Color success = Color(0xFF08FFC8); // Neon Green/Teal
+  static const Color warning = Color(0xFFFFB400); 
 
-  // Gradients
+  // Modern Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, secondary],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const LinearGradient surfaceGradient = LinearGradient(
-    colors: [surface, background],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+  static const LinearGradient glassGradient = LinearGradient(
+    colors: [
+      Colors.white10,
+      Color(0x0DFFFFFF), // Roughly 0.05 opacity white
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 
   static ThemeData get themeData {
     return ThemeData(
+      useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: background,
       primaryColor: primary,
@@ -39,25 +43,38 @@ class StitchTheme {
         primary: primary,
         secondary: secondary,
         surface: surface,
+        onSurface: textMain,
         error: error,
       ),
-      fontFamily: 'Inter', // We added google_fonts previously
+      fontFamily: 'Inter',
       appBarTheme: const AppBarTheme(
-        backgroundColor: background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         titleTextStyle: TextStyle(
           color: textMain,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontSize: 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
         ),
-        iconTheme: IconThemeData(color: textMain),
+        iconTheme: IconThemeData(color: textMain, size: 24),
+      ),
+      cardTheme: CardThemeData(
+        color: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: textMuted.withOpacity(0.1), width: 1),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primary,
-          foregroundColor: textMain,
+          foregroundColor: background,
+          elevation: 8,
+          shadowColor: primary.withOpacity(0.4),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),

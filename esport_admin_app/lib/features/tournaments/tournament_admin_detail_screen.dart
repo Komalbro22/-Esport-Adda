@@ -330,143 +330,228 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
         title: Text(t['title']),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status and actions
-            StitchCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double maxWidth = constraints.maxWidth > 800 ? 800 : constraints.maxWidth;
+          final ScrollController scrollController = ScrollController();
+          
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Scrollbar(
+                controller: scrollController,
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text('Current Status:', style: TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 18)),
-                      StitchBadge(
-                        text: status.toString(),
-                        color: StitchTheme.primary,
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (status == 'upcoming') ...[
-                    StitchButton(text: 'Start Tournament (Mark Ongoing)', onPressed: () => _updateStatus('ongoing')),
-                  ] else if (status == 'ongoing') ...[
-                    StitchButton(text: 'Finish & Distribute Prizes', onPressed: () => _updateStatus('completed')),
-                  ] else ...[
-                    const Text('Tournament is completed. Prizes have been distributed.', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.bold)),
-                  ]
-                ],
-              )
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Prize Setup
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Prize Pool Config', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-                if (status != 'completed')
-                  TextButton.icon(
-                    icon: const Icon(Icons.edit, color: StitchTheme.primary, size: 16),
-                    label: const Text('Edit', style: TextStyle(color: StitchTheme.primary)),
-                    onPressed: _showPrizeSetupDialog,
-                  )
-              ],
-            ),
-            const SizedBox(height: 8),
-            StitchCard(
-              child: Text(
-                _formatRankPrizesString(t['rank_prizes'] ?? {}).isEmpty ? 'No rank prizes configured. Set them before finishing.' : _formatRankPrizesString(t['rank_prizes'] ?? {}),
-                style: const TextStyle(color: StitchTheme.textMain),
-              )
-            ),
-
-            const SizedBox(height: 24),
-
-            // Room Setup
-            if (status != 'completed') ...[
-              const Text('Room Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-              const SizedBox(height: 8),
-              StitchCard(
-                child: Column(
-                  children: [
-                    StitchInput(label: 'Room ID', controller: _roomIdCtrl),
-                    const SizedBox(height: 12),
-                    StitchInput(label: 'Room Password', controller: _roomPassCtrl),
-                    const SizedBox(height: 16),
-                    StitchButton(text: 'Update Room Detials', isSecondary: true, onPressed: _updateRoomDetails),
-                  ],
-                )
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            // Participants / Results List
-            const Text('Participants & Results', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-            const SizedBox(height: 8),
-            if (_teams.isEmpty)
-              const StitchCard(child: Text('No participants yet.', style: TextStyle(color: StitchTheme.textMuted)))
-            else
-              ..._teams.map((team) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: StitchCard(
-                    onTap: () => _showResultEntryDialog(team),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(team['users']['name'], style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.textMain, fontSize: 16)),
-                              if (team['team_data'] != null && (team['team_data'] as List).isNotEmpty)
-                                Text('Squad: ${(team['team_data'] as List).map((e) => e['name']).join(', ')}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(8)),
-                          child: Row(
-                            children: [
-                              Column(
-                                children: [
-                                  const Text('Rank', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10)),
-                                  Text(team['rank']?.toString() ?? '-', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 16)),
-                                ],
-                              ),
-                              const SizedBox(width: 16),
-                               Column(
-                                children: [
-                                  const Text('Kills', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10)),
-                                  Text(team['kills']?.toString() ?? '-', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16)),
-                                ],
-                              ),
-                              if (status == 'completed') ...[
-                                const SizedBox(width: 16),
+                      // Header Card with Main Info
+                      StitchCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
                                 Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Prize', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10)),
-                                    Text('₹${team['total_prize'] ?? 0}', style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.bold, fontSize: 16)),
+                                    const Text('CURRENT STATUS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                                    const SizedBox(height: 8),
+                                    StitchBadge(
+                                      text: status.toString().toUpperCase(),
+                                      color: _getStatusColor(status.toString()),
+                                    ),
                                   ],
                                 ),
-                              ]
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: StitchTheme.surfaceHighlight,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    status == 'ongoing' ? Icons.play_circle_filled_rounded : 
+                                    status == 'upcoming' ? Icons.event_rounded : Icons.check_circle_rounded,
+                                    color: _getStatusColor(status.toString()),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            
+                            // Slot Progress Bar
+                            SlotProgressBar(joined: t['joined_slots'] ?? 0, total: t['total_slots'] ?? 0),
+                            
+                            const SizedBox(height: 24),
+                            
+                            // Countdown for Admin
+                            if (status == 'upcoming' && t['start_time'] != null) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.03),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Text('SCHEDULED START IN', style: TextStyle(color: StitchTheme.textMuted, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                                    const SizedBox(height: 12),
+                                    TournamentCountdown(startTime: DateTime.parse(t['start_time']).toLocal()),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+
+                            if (status == 'upcoming') ...[
+                              StitchButton(text: 'START TOURNAMENT', onPressed: () => _updateStatus('ongoing')),
+                            ] else if (status == 'ongoing') ...[
+                              StitchButton(text: 'FINISH & CALCULATE PRIZES', onPressed: () => _updateStatus('completed')),
+                            ] else ...[
+                              const Center(
+                                child: Text('TOURNAMENT ARCHIVED', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 12)),
+                              ),
+                            ]
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // Prize Setup
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('PRIZE CONFIGURATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 2)),
+                          if (status != 'completed')
+                            TextButton.icon(
+                              icon: const Icon(Icons.edit_note_rounded, color: StitchTheme.primary, size: 20),
+                              label: const Text('EDIT', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 12)),
+                              onPressed: _showPrizeSetupDialog,
+                            )
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      StitchCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          _formatRankPrizesString(t['rank_prizes'] ?? {}).isEmpty ? 'No prizes configured. Set Rank=Amount (e.g. 1=500, 2=200)' : _formatRankPrizesString(t['rank_prizes'] ?? {}),
+                          style: const TextStyle(color: StitchTheme.textMain, fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                        )
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Room Setup
+                      if (status != 'completed') ...[
+                        const Text('MATCH CREDENTIALS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 2)),
+                        const SizedBox(height: 12),
+                        StitchCard(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              StitchInput(label: 'Room ID', controller: _roomIdCtrl, hintText: 'Enter Room/Lobby ID'),
+                              const SizedBox(height: 16),
+                              StitchInput(label: 'Room Password', controller: _roomPassCtrl, hintText: 'Enter Lobby Password'),
+                              const SizedBox(height: 20),
+                              StitchButton(text: 'UPDATE GAME ROOM', isSecondary: true, onPressed: _updateRoomDetails),
                             ],
                           )
-                        )
+                        ),
+                        const SizedBox(height: 32),
                       ],
-                    )
-                  )
-                );
-              }).toList()
-          ],
+
+                      // Participants / Results List
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('PARTICIPANTS & SCORING', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 2)),
+                          if (_teams.isNotEmpty)
+                            Text('${_teams.length} PLAYERS', style: const TextStyle(color: StitchTheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (_teams.isEmpty)
+                        const StitchCard(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text('NO PLAYERS JOINED YET', style: TextStyle(color: StitchTheme.textMuted, letterSpacing: 1, fontSize: 12)))))
+                      else
+                        ..._teams.map((team) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: StitchCard(
+                              onTap: () => _showResultEntryDialog(team),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(team['users']['name'], style: const TextStyle(fontWeight: FontWeight.w900, color: StitchTheme.textMain, fontSize: 14)),
+                                        const SizedBox(height: 4),
+                                        if (team['team_data'] != null && (team['team_data'] as List).isNotEmpty)
+                                          Text('SQUAD: ${(team['team_data'] as List).map((e) => e['name']).join(', ').toUpperCase()}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, letterSpacing: 0.5)),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(12)),
+                                    child: Row(
+                                      children: [
+                                        _statCol('RANK', team['rank']?.toString() ?? '-', StitchTheme.primary),
+                                        _vDiv(),
+                                        _statCol('KILLS', team['kills']?.toString() ?? '-', StitchTheme.textMain),
+                                        if (status == 'completed') ...[
+                                          _vDiv(),
+                                          _statCol('PRIZE', '₹${team['total_prize'] ?? 0}', StitchTheme.success),
+                                        ]
+                                      ],
+                                    )
+                                  )
+                                ],
+                              )
+                            )
+                          );
+                        }).toList(),
+                      const SizedBox(height: 60),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }
         ),
       ),
     );
+  }
+
+  Widget _statCol(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 8, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 2),
+        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 14, fontFamily: 'monospace')),
+      ],
+    );
+  }
+
+  Widget _vDiv() {
+    return Container(width: 1, height: 20, color: Colors.white10, margin: const EdgeInsets.symmetric(horizontal: 16));
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'upcoming': return StitchTheme.secondary;
+      case 'ongoing': return StitchTheme.warning;
+      case 'completed': return StitchTheme.success;
+      default: return StitchTheme.textMuted;
+    }
+  }
   }
 }

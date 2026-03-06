@@ -69,6 +69,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           selectedItemColor: StitchTheme.primary,
           unselectedItemColor: StitchTheme.textMuted,
           currentIndex: _currentIndex,
+          type: BottomNavigationBarType.fixed,
           onTap: (index) => setState(() => _currentIndex = index),
           items: const [
             BottomNavigationBarItem(

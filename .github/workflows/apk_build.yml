@@ -7,8 +7,12 @@ on:
 
 jobs:
   build:
-    name: Build APKs
+    name: Build APK (${{ matrix.app }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [esport_user_app, esport_admin_app]
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v4
@@ -23,33 +27,22 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          # No hardcoded version, always uses latest stable
+          cache: true
 
-      - name: Get Dependencies
-        run: |
-          cd esport_user_app
-          flutter pub get
-          cd ../esport_admin_app
-          flutter pub get
+      - name: Get Dependencies (Core)
+        run: flutter pub get
+        working-directory: esport_core
 
-      - name: Build User App APK
-        run: |
-          cd esport_user_app
-          flutter build apk --release
+      - name: Get Dependencies (App)
+        run: flutter pub get
+        working-directory: ${{ matrix.app }}
 
-      - name: Build Admin App APK
-        run: |
-          cd esport_admin_app
-          flutter build apk --release
+      - name: Build APK (Release)
+        run: flutter build apk --release
+        working-directory: ${{ matrix.app }}
 
-      - name: Upload User App APK
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: esport-adda-apk
-          path: esport_user_app/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload Admin App APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: esport-admin-apk
-          path: esport_admin_app/build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ matrix.app }}-release-apk
+          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk

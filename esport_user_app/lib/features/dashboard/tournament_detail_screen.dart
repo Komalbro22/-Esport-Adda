@@ -22,12 +22,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
   bool _isJoining = false;
   bool _hasJoined = false;
   Map<String, dynamic>? _joinedTeamData;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     _fetchDetails();
   }
+
+  List<Map<String, dynamic>> _participants = [];
 
   Future<void> _fetchDetails() async {
     try {
@@ -37,12 +46,14 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
       final futures = await Future.wait([
         _supabase.from('tournaments').select('*, games(name)').eq('id', widget.tournamentId).single(),
         _supabase.from('joined_teams').select('*').eq('tournament_id', widget.tournamentId).eq('user_id', user.id).maybeSingle(),
+        _supabase.from('joined_teams').select('users(name, username)').eq('tournament_id', widget.tournamentId).limit(50),
       ]);
 
       if (mounted) {
         setState(() {
           _tournament = futures[0] as Map<String, dynamic>;
           _joinedTeamData = futures[1] as Map<String, dynamic>?;
+          _participants = List<Map<String, dynamic>>.from(futures[2] as List);
           _hasJoined = _joinedTeamData != null;
           _isLoading = false;
         });
@@ -73,8 +84,21 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
     return Scaffold(
       backgroundColor: StitchTheme.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(t['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                StitchTheme.background.withOpacity(0.8),
+                StitchTheme.background.withOpacity(0.0),
+              ],
+            ),
+          ),
+        ),
+        title: Text(t['title'].toString().toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1)),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -83,45 +107,56 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: Scrollbar(
+        controller: _scrollController,
+        child: ListView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
           children: [
-            // Banner Section
-            if (t['banner_url'] != null && t['banner_url'].toString().isNotEmpty)
-              Stack(
-                children: [
-                  Image.network(
-                    t['banner_url'], 
-                    height: 250, 
-                    width: double.infinity, 
-                    fit: BoxFit.cover, 
-                    errorBuilder: (c,e,s) => Container(height: 200, color: StitchTheme.surfaceHighlight, child: const Icon(Icons.image_not_supported, color: StitchTheme.textMuted))
-                  ),
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            StitchTheme.background.withOpacity(0.8),
-                            StitchTheme.background,
-                          ],
-                        ),
-                      ),
+          // Banner Section with Live Indicator
+          Stack(
+            children: [
+              if (t['banner_url'] != null && t['banner_url'].toString().isNotEmpty)
+                Image.network(
+                  t['banner_url'], 
+                  height: 280, 
+                  width: double.infinity, 
+                  fit: BoxFit.cover, 
+                  errorBuilder: (c,e,s) => Container(height: 280, color: StitchTheme.surfaceHighlight, child: const Icon(Icons.image_not_supported, color: StitchTheme.textMuted))
+                )
+              else
+                Container(height: 280, decoration: const BoxDecoration(gradient: StitchTheme.primaryGradient)),
+              
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        StitchTheme.background.withOpacity(0.5),
+                        StitchTheme.background,
+                      ],
                     ),
                   ),
-                ],
-              )
-            else
-              const SizedBox(height: 20),
+                ),
+              ),
+              
+              if (status == 'ongoing')
+                const Positioned(
+                  top: 100,
+                  right: 16,
+                  child: LiveIndicator(),
+                ),
+            ],
+          ),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                    // Metadata Header
                    Row(
@@ -130,63 +165,64 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                        Column(
                          crossAxisAlignment: CrossAxisAlignment.start,
                          children: [
-                            Text(t['games']['name'] ?? '', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
-                            const SizedBox(height: 4),
-                            Text(t['title'], style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 22)),
+                            Text(t['games']['name']?.toString().toUpperCase() ?? '', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1)),
+                            const SizedBox(height: 6),
+                            Text(t['title'], style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 26, letterSpacing: -0.5)),
                          ],
                        ),
-                       StitchBadge(
-                         text: t['tournament_type'].toString(),
-                         color: StitchTheme.primary,
+                       Container(
+                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                         decoration: BoxDecoration(
+                           color: StitchTheme.primary.withOpacity(0.1),
+                           borderRadius: BorderRadius.circular(8),
+                           border: Border.all(color: StitchTheme.primary.withOpacity(0.3)),
+                         ),
+                         child: Text(
+                           t['tournament_type'].toString().toUpperCase(),
+                           style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 10),
+                         ),
                        ),
                     ],
                   ),
 
                   const SizedBox(height: 24),
 
+                  // Slot Progress Bar
+                  SlotProgressBar(joined: t['joined_slots'] ?? 0, total: t['total_slots'] ?? 0),
+                  
+                  const SizedBox(height: 24),
+
+                  // Countdown or Start Time
+                  if (status == 'upcoming' && t['start_time'] != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.03),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('TOURNAMENT STARTS IN', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                          const SizedBox(height: 16),
+                          TournamentCountdown(startTime: DateTime.parse(t['start_time'])),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Info Grid
                   Row(
                     children: [
                       Expanded(
-                        child: StitchCard(
-                          padding: const EdgeInsets.all(12),
-                          child: _InfoTile(icon: Icons.payments, title: 'Entry', value: '₹${t['entry_fee']}'),
-                        ),
+                        child: _ModernInfoCard(icon: Icons.payments_rounded, title: 'Entry Fee', value: '₹${t['entry_fee']}'),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: StitchCard(
-                          padding: const EdgeInsets.all(12),
-                          child: _InfoTile(icon: Icons.track_changes, title: 'Per Kill', value: '₹${t['per_kill_reward']}'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: StitchCard(
-                          padding: const EdgeInsets.all(12),
-                          child: _InfoTile(icon: Icons.groups, title: 'Slots', value: '${t['joined_slots']}/${t['total_slots']}'),
-                        ),
+                        child: _ModernInfoCard(icon: Icons.radar_rounded, title: 'Per Kill', value: '₹${t['per_kill_reward']}'),
                       ),
                     ],
-                  ),
-
-                  const SizedBox(height: 12),
-                  StitchCard(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.schedule, color: StitchTheme.accent, size: 20),
-                        const SizedBox(width: 12),
-                        const Text('Starts on:', style: TextStyle(color: StitchTheme.textMuted, fontSize: 14)),
-                        const Spacer(),
-                        Text(
-                          t['start_time'] != null 
-                            ? DateFormat('MMM dd, yyyy • HH:mm').format(DateTime.parse(t['start_time']).toLocal()) 
-                            : 'TBA',
-                          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)
-                        ),
-                      ],
-                    ),
                   ),
 
                   const SizedBox(height: 32),
@@ -194,11 +230,11 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                   // Description
                   _SectionHeader(title: 'Overview'),
                   const SizedBox(height: 12),
-                  Text(t['description'] ?? 'No description available for this tournament.', style: const TextStyle(color: StitchTheme.textMuted, height: 1.6, fontSize: 14)),
+                  Text(t['description'] ?? 'No description available.', style: const TextStyle(color: StitchTheme.textMuted, height: 1.6, fontSize: 14)),
                   
                   if (t['prize_description'] != null) ...[
                     const SizedBox(height: 32),
-                    _SectionHeader(title: 'Prize Details'),
+                    _SectionHeader(title: 'Prize Pool'),
                     const SizedBox(height: 12),
                     Text(t['prize_description'], style: const TextStyle(color: StitchTheme.textMuted, height: 1.6, fontSize: 14)),
                   ],
@@ -207,28 +243,46 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                     const SizedBox(height: 32),
                     _SectionHeader(title: 'Prize Distribution'),
                     const SizedBox(height: 12),
-                    StitchCard(
+                    Container(
+                      decoration: BoxDecoration(
+                        color: StitchTheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      padding: const EdgeInsets.all(8),
                       child: Column(
                         children: (t['rank_prizes'] as Map<String, dynamic>).entries.map((e) {
                           final rankNum = int.tryParse(e.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
                           final isTop3 = rankNum <= 3 && rankNum > 0;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: isTop3 ? StitchTheme.primary.withOpacity(0.05) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   children: [
                                     Icon(
-                                      isTop3 ? Icons.workspace_premium : Icons.stars_rounded, 
-                                      color: isTop3 ? StitchTheme.warning : StitchTheme.textMuted.withOpacity(0.5), 
-                                      size: 18
+                                      isTop3 ? Icons.workspace_premium_rounded : Icons.military_tech_rounded, 
+                                      color: isTop3 ? (rankNum == 1 ? Colors.amber : StitchTheme.primary) : StitchTheme.textMuted, 
+                                      size: 20
                                     ),
-                                    const SizedBox(width: 10),
-                                    Text(e.key.startsWith('Rank') ? e.key : 'Rank ${e.key}', style: TextStyle(color: isTop3 ? StitchTheme.textMain : StitchTheme.textMuted, fontWeight: isTop3 ? FontWeight.bold : FontWeight.normal, fontSize: 14)),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      e.key.startsWith('Rank') ? e.key : 'Rank ${e.key}', 
+                                      style: TextStyle(
+                                        color: isTop3 ? StitchTheme.textMain : StitchTheme.textMuted, 
+                                        fontWeight: isTop3 ? FontWeight.w900 : FontWeight.normal, 
+                                        fontSize: 14
+                                      )
+                                    ),
                                   ],
                                 ),
-                                Text('₹${e.value}', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.bold, fontSize: 16)),
+                                Text('₹${e.value}', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 16)),
                               ],
                             ),
                           );
@@ -237,16 +291,54 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                     ),
                   ],
 
+                  const SizedBox(height: 32),
+                  _SectionHeader(title: 'Participants'),
+                  const SizedBox(height: 12),
+                  if (_participants.isEmpty)
+                    const StitchCard(child: Center(child: Padding(padding: EdgeInsets.all(24), child: Text('No entries yet. Be the first!', style: TextStyle(color: StitchTheme.textMuted)))))
+                  else
+                    Container(
+                      decoration: BoxDecoration(
+                        color: StitchTheme.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        children: _participants.map((p) {
+                          final user = p['users'];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: StitchTheme.primary.withOpacity(0.1),
+                              child: Text(user['name']?[0] ?? '?', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+                            ),
+                            title: Text(user['name'] ?? 'Player', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                            trailing: const Icon(Icons.check_circle_rounded, color: StitchTheme.success, size: 16),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+
                   if (_hasJoined && status == 'ongoing') ...[
                     const SizedBox(height: 32),
-                    _SectionHeader(title: 'Room Access'),
+                    _SectionHeader(title: 'Match Credentials'),
                     const SizedBox(height: 12),
-                    StitchCard(
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: StitchTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                      ),
                       child: Column(
                         children: [
-                          _CopyRow(label: 'Room ID', value: t['room_id'] ?? 'TBA'),
-                          const Divider(color: StitchTheme.surfaceHighlight, height: 24),
-                          _CopyRow(label: 'Password', value: t['room_password'] ?? 'TBA'),
+                          _ModernCopyRow(label: 'Room ID', value: t['room_id'] ?? 'WAITING...'),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(color: Colors.white10),
+                          ),
+                          _ModernCopyRow(label: 'Password', value: t['room_password'] ?? 'WAITING...'),
                         ]
                       )
                     )
@@ -254,39 +346,43 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
 
                   if (status == 'completed') ...[
                     const SizedBox(height: 32),
-                    _SectionHeader(title: 'Your Match Stats'),
+                    _SectionHeader(title: 'Final Statistics'),
                     const SizedBox(height: 12),
                     if (_hasJoined && _joinedTeamData != null) ...[
-                      StitchCard(
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: StitchTheme.primaryGradient.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            _SmallStat(label: 'Rank', value: '#${_joinedTeamData!['rank'] ?? '-'}'),
-                            _SmallStat(label: 'Kills', value: '${_joinedTeamData!['kills'] ?? '0'}'),
-                            _SmallStat(label: 'Prize', value: '₹${_joinedTeamData!['total_prize'] ?? '0'}', isSuccess: true),
+                            _ModernStatTile(label: 'RANK', value: '#${_joinedTeamData!['rank'] ?? '-'}'),
+                            _ModernStatTile(label: 'KILLS', value: '${_joinedTeamData!['kills'] ?? '0'}'),
+                            _ModernStatTile(label: 'PRIZE', value: '₹${_joinedTeamData!['total_prize'] ?? '0'}', highlight: true),
                           ],
                         ),
                       ),
                     ] else ...[
                       const StitchCard(child: Center(child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: Text('Tournament concluded.', style: TextStyle(color: StitchTheme.textMuted)),
+                        padding: EdgeInsets.all(24.0),
+                        child: Text('Tournament has ended.', style: TextStyle(color: StitchTheme.textMuted)),
                       ))),
                     ],
                   ],
-
-                  const SizedBox(height: 120), // Bottom padding for button
+                  const SizedBox(height: 140),
                 ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _buildActionBtn(),
     );
   }
-
 
   Widget? _buildActionBtn() {
     final status = _tournament!['status'];
@@ -327,14 +423,51 @@ class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: StitchTheme.textMain, letterSpacing: 0.5));
+    return Text(
+      title.toUpperCase(), 
+      style: const TextStyle(
+        fontSize: 14, 
+        fontWeight: FontWeight.w900, 
+        color: StitchTheme.textMain, 
+        letterSpacing: 2
+      )
+    );
   }
 }
 
-class _CopyRow extends StatelessWidget {
+class _ModernInfoCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  const _ModernInfoCard({required this.icon, required this.title, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: StitchTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: StitchTheme.primary, size: 20),
+          const SizedBox(height: 12),
+          Text(title, style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 18)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ModernCopyRow extends StatelessWidget {
   final String label;
   final String value;
-  const _CopyRow({required this.label, required this.value});
+  const _ModernCopyRow({required this.label, required this.value});
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -343,103 +476,44 @@ class _CopyRow extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-            const SizedBox(height: 4),
-            Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label, style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 0.5)),
           ],
         ),
         IconButton(
           onPressed: () {
             // Copy logic
           }, 
-          icon: const Icon(Icons.copy_rounded, size: 20, color: StitchTheme.primary)
+          icon: const Icon(Icons.copy_all_rounded, size: 22, color: StitchTheme.primary)
         )
       ],
     );
   }
 }
 
-class _SmallStat extends StatelessWidget {
+class _ModernStatTile extends StatelessWidget {
   final String label;
   final String value;
-  final bool isSuccess;
-  const _SmallStat({required this.label, required this.value, this.isSuccess = false});
+  final bool highlight;
+  const _ModernStatTile({required this.label, required this.value, this.highlight = false});
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-        const SizedBox(height: 6),
-        Text(value, style: TextStyle(color: isSuccess ? StitchTheme.success : StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 20)),
-      ],
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-  const _InfoTile({required this.icon, required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: StitchTheme.textMuted, size: 18),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-          ],
+        Text(label, style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.7), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        const SizedBox(height: 8),
+        Text(
+          value, 
+          style: TextStyle(
+            color: highlight ? StitchTheme.success : StitchTheme.textMain, 
+            fontWeight: FontWeight.w900, 
+            fontSize: 24,
+            fontFamily: 'monospace',
+          )
         ),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isSelectable;
-  const _InfoRow({required this.label, required this.value, this.isSelectable = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-        const SizedBox(height: 4),
-        if (isSelectable)
-          SelectableText(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16))
-        else
-          Text(value, style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16)),
-      ],
-    );
-  }
-}
-
-class _ResultRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-  const _ResultRow({required this.label, required this.value, this.valueColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 15)),
-          Text(value, style: TextStyle(color: valueColor ?? StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 16)),
-        ],
-      ),
-    );
-  }
-}

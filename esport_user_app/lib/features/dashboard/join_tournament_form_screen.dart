@@ -23,6 +23,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
   final TextEditingController _myNameController = TextEditingController();
   final TextEditingController _myUidController = TextEditingController();
   final List<TextEditingController> _teammateControllers = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -138,6 +139,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
     for (var c in _teammateControllers) {
       c.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -147,84 +149,175 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
     if (_tournament == null) return const Scaffold(body: StitchError(message: 'Tournament not found'));
 
     return Scaffold(
+      backgroundColor: StitchTheme.background,
       appBar: AppBar(
-        title: const Text('Join Tournament', style: TextStyle(fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => context.pop(),
+        title: const Text('REGISTRATION', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+        centerTitle: true,
+      ),
+      body: Scrollbar(
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Tournament Info Summary
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: StitchTheme.primaryGradient.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      _tournament!['title'].toString().toUpperCase(), 
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
+                      textAlign: TextAlign.center
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _Badge(text: _tournament!['tournament_type'].toString().toUpperCase()),
+                        const SizedBox(width: 8),
+                        Text(
+                          'ENTRY: ₹${_tournament!['entry_fee']}', 
+                          style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 13)
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 32),
+              
+              const Text('PLAYER DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+              const SizedBox(height: 16),
+              
+              // Primary Player Data
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: StitchTheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.stars_rounded, color: StitchTheme.primary, size: 18),
+                        SizedBox(width: 8),
+                        Text('TEAM LEADER (YOU)', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    StitchInput(
+                      label: 'IN-GAME NAME',
+                      controller: _myNameController,
+                      hintText: 'Enter your exact nickname',
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'PLAYER UID',
+                      controller: _myUidController,
+                      hintText: 'e.g. 54321098',
+                    ),
+                  ],
+                ),
+              ),
+
+              if (_teammateControllers.isNotEmpty) ...[
+                const SizedBox(height: 32),
+                const Text('TEAMMATE INFORMATION', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
+                const SizedBox(height: 16),
+                ...List.generate(_teammateControllers.length, (index) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: StitchTheme.surface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white.withOpacity(0.03)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.person_outline_rounded, color: StitchTheme.textMuted.withOpacity(0.5), size: 18),
+                            const SizedBox(width: 8),
+                            Text('TEAMMATE ${index + 2}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5)),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        StitchInput(
+                          label: 'IN-GAME NAME',
+                          controller: _teammateControllers[index],
+                          hintText: 'Enter teammate nickname',
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              const SizedBox(height: 40),
+              StitchButton(
+                text: 'CONFIRM REGISTRATION',
+                onPressed: _handleJoin,
+                isLoading: _isJoining,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.withOpacity(0.1)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: Colors.amber, size: 16),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Incorrect details may lead to disqualification without refund.',
+                        style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            StitchCard(
-              child: Column(
-                children: [
-                  Text(_tournament!['title'], style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: StitchTheme.textMain), textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  Text('Type: ${_tournament!['tournament_type'].toString().toUpperCase()}', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  const Divider(color: StitchTheme.surfaceHighlight),
-                  const SizedBox(height: 16),
-                  const Text('Enter your details for registration', style: TextStyle(color: StitchTheme.textMuted)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            StitchCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Player 1 (Me)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: StitchTheme.textMain)),
-                  const SizedBox(height: 16),
-                  StitchInput(
-                    label: 'My In-Game Name',
-                    controller: _myNameController,
-                    prefixIcon: const Icon(Icons.person),
-                  ),
-                  const SizedBox(height: 16),
-                  StitchInput(
-                    label: 'My Player UID',
-                    controller: _myUidController,
-                    prefixIcon: const Icon(Icons.badge_outlined),
-                  ),
-                  const SizedBox(height: 24),
+    );
+  }
+}
 
-                  if (_teammateControllers.isNotEmpty) ...[
-                    const Text('Teammate Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-                    const SizedBox(height: 16),
-                    ...List.generate(_teammateControllers.length, (index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: StitchInput(
-                          label: 'Teammate ${index + 1} In-Game Name',
-                          controller: _teammateControllers[index],
-                          prefixIcon: const Icon(Icons.person_add_outlined),
-                        ),
-                      );
-                    }),
-                  ],
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
-            StitchButton(
-              text: 'Confirm and Join (₹${_tournament!['entry_fee']})',
-              onPressed: _handleJoin,
-              isLoading: _isJoining,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'By joining, you agree to follow the tournament rules and maintain fair play.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: StitchTheme.textMuted, fontSize: 12),
-            ),
-          ],
-        ),
+class _Badge extends StatelessWidget {
+  final String text;
+  const _Badge({required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: StitchTheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: StitchTheme.primary.withOpacity(0.3)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
       ),
     );
   }

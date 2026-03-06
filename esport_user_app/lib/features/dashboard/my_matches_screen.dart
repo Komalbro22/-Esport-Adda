@@ -57,30 +57,37 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> with SingleTickerProv
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Matches'),
+        title: const Text('MY MATCHES', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5, fontSize: 16)),
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => context.pop(),
         ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: StitchTheme.primary,
+          indicatorWeight: 3,
           labelColor: StitchTheme.primary,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5),
           unselectedLabelColor: StitchTheme.textMuted,
           tabs: const [
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Ongoing'),
-            Tab(text: 'Completed'),
+            Tab(text: 'UPCOMING'),
+            Tab(text: 'ONGOING'),
+            Tab(text: 'COMPLETED'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _MatchList(matches: upcoming, status: 'upcoming'),
-          _MatchList(matches: ongoing, status: 'ongoing'),
-          _MatchList(matches: completed, status: 'completed'),
-        ],
+      body: RefreshIndicator(
+        onRefresh: _fetchMatches,
+        color: StitchTheme.primary,
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _MatchList(matches: upcoming, status: 'upcoming'),
+            _MatchList(matches: ongoing, status: 'ongoing'),
+            _MatchList(matches: completed, status: 'completed'),
+          ],
+        ),
       ),
     );
   }
@@ -94,6 +101,8 @@ class _MatchList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ScrollController scrollController = ScrollController();
+    
     if (matches.isEmpty) {
       return Center(
         child: Column(
@@ -107,87 +116,92 @@ class _MatchList extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: matches.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
-      itemBuilder: (context, index) {
-        final team = matches[index];
-        final t = team['tournaments'];
-        final g = t['games'];
-        final isOngoing = status == 'ongoing';
-        final isCompleted = status == 'completed';
-        
-        return StitchCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
+    return Scrollbar(
+      controller: scrollController,
+      child: ListView.separated(
+        controller: scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        itemCount: matches.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (context, index) {
+          final team = matches[index];
+          final t = team['tournaments'];
+          final g = t['games'];
+          final isOngoing = status == 'ongoing';
+          final isCompleted = status == 'completed';
+          
+          return StitchCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t['title'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
+                          Text(g['name'], style: const TextStyle(color: StitchTheme.primary, fontSize: 13, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    ),
+                    StitchBadge(
+                      text: status.toUpperCase(),
+                      color: _getStatusColor(status),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _infoItem(Icons.access_time, t['start_time'] != null ? DateFormat('MMM dd, HH:mm').format(DateTime.parse(t['start_time']).toLocal()) : 'TBD'),
+                    const SizedBox(width: 16),
+                    _infoItem(Icons.currency_rupee, 'Entry: ₹${t['entry_fee']}'),
+                  ],
+                ),
+                if (isOngoing) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: StitchTheme.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(t['title'], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-                        Text(g['name'], style: const TextStyle(color: StitchTheme.primary, fontSize: 13, fontWeight: FontWeight.w500)),
+                        const Text('ROOM DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: StitchTheme.primary, letterSpacing: 1)),
+                        const SizedBox(height: 8),
+                        _roomRow('Room ID:', t['room_id'] ?? 'Not Ready'),
+                        const SizedBox(height: 4),
+                        _roomRow('Password:', t['room_password'] ?? 'Not Ready'),
                       ],
                     ),
                   ),
-                  StitchBadge(
-                    text: status,
-                    color: _getStatusColor(status),
+                ],
+                if (isCompleted) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: StitchTheme.surface, borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _statItem('Rank', '${team['rank'] ?? '-'}', StitchTheme.primary),
+                        _statItem('Kills', '${team['kills'] ?? '0'}', StitchTheme.textMain),
+                        _statItem('Prize', '₹${team['total_prize'] ?? '0'}', StitchTheme.success),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _infoItem(Icons.access_time, t['start_time'] != null ? DateFormat('MMM dd, HH:mm').format(DateTime.parse(t['start_time']).toLocal()) : 'TBD'),
-                  const SizedBox(width: 16),
-                  _infoItem(Icons.currency_rupee, 'Entry: ₹${t['entry_fee']}'),
-                ],
-              ),
-              if (isOngoing) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: StitchTheme.primary.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('ROOM DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: StitchTheme.primary, letterSpacing: 1)),
-                      const SizedBox(height: 8),
-                      _roomRow('Room ID:', t['room_id'] ?? 'Not Ready'),
-                      const SizedBox(height: 4),
-                      _roomRow('Password:', t['room_password'] ?? 'Not Ready'),
-                    ],
-                  ),
-                ),
               ],
-              if (isCompleted) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: StitchTheme.surface, borderRadius: BorderRadius.circular(12)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _statItem('Rank', '${team['rank'] ?? '-'}', StitchTheme.primary),
-                      _statItem('Kills', '${team['kills'] ?? '0'}', StitchTheme.textMain),
-                      _statItem('Prize', '₹${team['total_prize'] ?? '0'}', StitchTheme.success),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 
