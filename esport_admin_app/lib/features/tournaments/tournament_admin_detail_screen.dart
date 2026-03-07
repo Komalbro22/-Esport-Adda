@@ -569,7 +569,27 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                                         Text(team['users']['name'], style: const TextStyle(fontWeight: FontWeight.w900, color: StitchTheme.textMain, fontSize: 14)),
                                         const SizedBox(height: 4),
                                         if (team['team_data'] != null && (team['team_data'] as List).isNotEmpty)
-                                          Text('SQUAD: ${(team['team_data'] as List).map((e) => e['name']).join(', ').toUpperCase()}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, letterSpacing: 0.5)),
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 8),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: (team['team_data'] as List).map((member) {
+                                                return Padding(
+                                                  padding: const EdgeInsets.only(bottom: 2),
+                                                  child: Row(
+                                                    children: [
+                                                      const Icon(Icons.person_pin_rounded, size: 12, color: StitchTheme.primary),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        '${member['name']?.toString().toUpperCase() ?? 'UNK'} (UID: ${member['uid'] ?? '-'})',
+                                                        style: const TextStyle(color: StitchTheme.textMain, fontSize: 11, fontWeight: FontWeight.bold),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),

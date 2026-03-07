@@ -22,7 +22,8 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
   
   final TextEditingController _myNameController = TextEditingController();
   final TextEditingController _myUidController = TextEditingController();
-  final List<TextEditingController> _teammateControllers = [];
+  final List<TextEditingController> _teammateNameControllers = [];
+  final List<TextEditingController> _teammateUidControllers = [];
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -48,7 +49,8 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
           if (type == 'squad') numTeammates = 3;
           
           for (int i = 0; i < numTeammates; i++) {
-            _teammateControllers.add(TextEditingController());
+            _teammateNameControllers.add(TextEditingController());
+            _teammateUidControllers.add(TextEditingController());
           }
           _isLoading = false;
         });
@@ -86,9 +88,9 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
     }
 
     // Validate teammates
-    for (var controller in _teammateControllers) {
-      if (controller.text.trim().isEmpty) {
-        StitchSnackbar.showError(context, 'Please fill all teammate names');
+    for (int i = 0; i < _teammateNameControllers.length; i++) {
+      if (_teammateNameControllers[i].text.trim().isEmpty || _teammateUidControllers[i].text.trim().isEmpty) {
+        StitchSnackbar.showError(context, 'Please fill all teammate names and UIDs');
         return;
       }
     }
@@ -109,8 +111,11 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
         'is_leader': 'true'
       });
       // Add teammates
-      for (var c in _teammateControllers) {
-        teamData.add({'name': c.text.trim()});
+      for (int i = 0; i < _teammateNameControllers.length; i++) {
+        teamData.add({
+          'name': _teammateNameControllers[i].text.trim(),
+          'uid': _teammateUidControllers[i].text.trim(),
+        });
       }
 
       print('DEBUG: Calling join_tournament with session valid: ${session.user.id}');
@@ -154,7 +159,10 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
   void dispose() {
     _myNameController.dispose();
     _myUidController.dispose();
-    for (var c in _teammateControllers) {
+    for (var c in _teammateNameControllers) {
+      c.dispose();
+    }
+    for (var c in _teammateUidControllers) {
       c.dispose();
     }
     _scrollController.dispose();
@@ -273,18 +281,29 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                 hintText: 'e.g. 5123456789',
                 icon: Icons.numbers_rounded,
               ),
-              if (_teammateControllers.isNotEmpty) ...[
+              if (_teammateNameControllers.isNotEmpty) ...[
                 const SizedBox(height: 32),
                 const Text('Teammate Details', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
                 const SizedBox(height: 20),
-                ...List.generate(_teammateControllers.length, (index) {
+                ...List.generate(_teammateNameControllers.length, (index) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _CustomInput(
-                      label: 'Teammate ${index + 2} IGN',
-                      controller: _teammateControllers[index],
-                      hintText: 'Enter teammate nickname',
-                      icon: Icons.group_outlined,
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        _CustomInput(
+                          label: 'Teammate ${index + 2} IGN',
+                          controller: _teammateNameControllers[index],
+                          hintText: 'Enter teammate nickname',
+                          icon: Icons.person_outline,
+                        ),
+                        const SizedBox(height: 12),
+                        _CustomInput(
+                          label: 'Teammate ${index + 2} UID',
+                          controller: _teammateUidControllers[index],
+                          hintText: 'Enter teammate UID',
+                          icon: Icons.numbers_rounded,
+                        ),
+                      ],
                     ),
                   );
                 }),

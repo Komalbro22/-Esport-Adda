@@ -295,6 +295,45 @@ class _MatchCard extends StatelessWidget {
               ),
             ],
 
+            // 4. Team Details (If Duo/Squad)
+            if (team['team_data'] != null && (team['team_data'] as List).length > 1) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.02),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('TEAM MEMBERS', style: TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      const SizedBox(height: 8),
+                      ...(team['team_data'] as List).map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 10, color: Colors.blueAccent),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${m['name']?.toString().toUpperCase() ?? 'UNK'}',
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            const Spacer(),
+                            Text(
+                              'UID: ${m['uid'] ?? '-'}',
+                              style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'),
+                            ),
+                          ],
+                        ),
+                      )).toList(),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
             // 5. Progress/Status
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
