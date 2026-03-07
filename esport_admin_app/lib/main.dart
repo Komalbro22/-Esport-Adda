@@ -15,6 +15,7 @@ import 'features/assets/asset_gallery_screen.dart';
 import 'features/users/user_management_screen.dart';
 import 'features/users/user_detail_screen.dart';
 import 'features/support/support_management_screen.dart';
+import 'features/support/admin_ticket_detail_screen.dart';
 import 'features/wallet/payment_settings_screen.dart';
 import 'features/settings/app_settings_screen.dart';
 import 'features/notifications/send_notification_screen.dart';
@@ -117,7 +118,17 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/support',
-      builder: (context, state) => const SupportManagementScreen(),
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageSupport,
+        child: const SupportManagementScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/admin_ticket/:id',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageSupport,
+        child: AdminTicketDetailScreen(ticketId: state.pathParameters['id']!),
+      ),
     ),
     GoRoute(
       path: '/payment_settings',

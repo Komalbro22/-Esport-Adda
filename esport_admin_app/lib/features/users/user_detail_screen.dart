@@ -22,11 +22,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _transactions = [];
   List<Map<String, dynamic>> _referredUsers = [];
+  List<Map<String, dynamic>> _supportTickets = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchData();
   }
 
@@ -61,6 +62,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           .eq('referred_by', user['referral_code'])
           .order('created_at', ascending: false);
 
+      final supportTickets = await _supabase
+          .from('support_tickets')
+          .select()
+          .eq('user_id', widget.userId)
+          .order('updated_at', ascending: false);
+
       if (mounted) {
         setState(() {
           _user = user;
@@ -69,6 +76,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           _matches = List<Map<String, dynamic>>.from(matches);
           _transactions = List<Map<String, dynamic>>.from(transactions);
           _referredUsers = List<Map<String, dynamic>>.from(referrals);
+          _supportTickets = List<Map<String, dynamic>>.from(supportTickets);
           _isLoading = false;
         });
       }
@@ -261,6 +269,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                   Tab(text: 'Tournaments'),
                   Tab(text: 'Transactions'),
                   Tab(text: 'Referrals'),
+                  Tab(text: 'Support'),
                 ],
               ),
             ),
@@ -272,6 +281,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                   _TournamentHistoryList(matches: _matches),
                   _TransactionHistoryList(transactions: _transactions),
                   _ReferralHistoryList(referrals: _referredUsers, referrer: _referrer),
+                  _SupportTicketHistoryList(tickets: _supportTickets),
                 ],
               ),
             ),
@@ -598,6 +608,59 @@ class _ReferralHistoryList extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _SupportTicketHistoryList extends StatelessWidget {
+  final List<Map<String, dynamic>> tickets;
+  const _SupportTicketHistoryList({required this.tickets});
+
+  @override
+  Widget build(BuildContext context) {
+    if (tickets.isEmpty) return const Center(child: Text('No support tickets', style: TextStyle(color: StitchTheme.textMuted)));
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: tickets.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        final t = tickets[index];
+        final status = t['status'] ?? 'open';
+        
+        Color statusColor;
+        switch (status) {
+          case 'open': statusColor = StitchTheme.secondary; break;
+          case 'in_progress': statusColor = StitchTheme.warning; break;
+          case 'resolved': statusColor = StitchTheme.success; break;
+          case 'closed': statusColor = StitchTheme.textMuted; break;
+          default: statusColor = StitchTheme.primary;
+        }
+
+        return StitchCard(
+          onTap: () => context.push('/admin_ticket/${t['id']}'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: Text(t['subject'] ?? 'No Subject', style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.textMain))),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                    child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Updated ${DateFormat('MMM dd, HH:mm').format(DateTime.parse(t['updated_at']).toLocal())}',
+                style: const TextStyle(fontSize: 10, color: StitchTheme.textMuted),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

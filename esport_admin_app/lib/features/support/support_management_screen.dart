@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class SupportManagementScreen extends StatefulWidget {
@@ -10,30 +11,46 @@ class SupportManagementScreen extends StatefulWidget {
   State<SupportManagementScreen> createState() => _SupportManagementScreenState();
 }
 
-class _SupportManagementScreenState extends State<SupportManagementScreen> {
+class _SupportManagementScreenState extends State<SupportManagementScreen> with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
+  late TabController _tabController;
   bool _isLoading = true;
   List<Map<String, dynamic>> _tickets = [];
-  String _filterStatus = 'open';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+       if (_tabController.indexIsChanging) _fetchTickets();
+    });
     _fetchTickets();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  String get _currentStatus {
+    switch (_tabController.index) {
+      case 0: return 'open';
+      case 1: return 'in_progress';
+      case 2: return 'resolved';
+      case 3: return 'closed';
+      default: return 'open';
+    }
   }
 
   Future<void> _fetchTickets() async {
     setState(() => _isLoading = true);
     try {
-      var query = _supabase
+      final data = await _supabase
           .from('support_tickets')
-          .select('*, users(username, email)');
-
-      if (_filterStatus != 'all') {
-        query = query.eq('status', _filterStatus);
-      }
-
-      final data = await query.order('created_at', ascending: false);
+          .select('*, users(name, username, avatar_url)')
+          .eq('status', _currentStatus)
+          .order('updated_at', ascending: false);
       
       if (mounted) {
         setState(() {
@@ -46,112 +63,118 @@ class _SupportManagementScreenState extends State<SupportManagementScreen> {
     }
   }
 
-  Future<void> _updateTicketStatus(String id, String status) async {
-    try {
-      await _supabase.from('support_tickets').update({'status': status}).eq('id', id);
-      StitchSnackbar.showSuccess(context, 'Ticket marked as $status');
-      _fetchTickets();
-    } catch (e) {
-      StitchSnackbar.showError(context, 'Failed to update ticket');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Support Management'),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list),
-            onSelected: (val) {
-              setState(() => _filterStatus = val);
-              _fetchTickets();
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'all', child: Text('All Tickets')),
-              const PopupMenuItem(value: 'open', child: Text('Open Tickets')),
-              const PopupMenuItem(value: 'closed', child: Text('Closed Tickets')),
-            ],
-          ),
-        ],
+        title: const Text('Support Desk'),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: StitchTheme.primary,
+          unselectedLabelColor: StitchTheme.textMuted,
+          indicatorColor: StitchTheme.primary,
+          isScrollable: true,
+          tabs: const [
+            Tab(text: 'OPEN'),
+            Tab(text: 'IN PROGRESS'),
+            Tab(text: 'RESOLVED'),
+            Tab(text: 'CLOSED'),
+          ],
+        ),
       ),
       body: _isLoading 
-          ? const StitchLoading() 
+          ? const Center(child: StitchLoading()) 
           : RefreshIndicator(
               onRefresh: _fetchTickets,
+              color: StitchTheme.primary,
               child: _tickets.isEmpty 
-                  ? const Center(child: Text('No tickets found', style: TextStyle(color: StitchTheme.textMuted)))
+                  ? _buildEmptyState()
                   : ListView.separated(
                       padding: const EdgeInsets.all(16),
                       itemCount: _tickets.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final ticket = _tickets[index];
-                        final user = ticket['users'];
-                        final isOpen = ticket['status'] == 'open';
-                        
-                        return StitchCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  StitchBadge(
-                                    text: ticket['status'].toString(),
-                                    color: isOpen ? Colors.orange : Colors.green,
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    DateFormat('dd MMM, HH:mm').format(DateTime.parse(ticket['created_at'])),
-                                    style: const TextStyle(fontSize: 12, color: StitchTheme.textMuted),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                ticket['subject'],
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'From: ${user?['username'] ?? 'Unknown'} (${user?['email'] ?? ''})',
-                                style: const TextStyle(color: StitchTheme.primary, fontSize: 13),
-                              ),
-                              const Divider(height: 24, color: StitchTheme.surfaceHighlight),
-                              Text(
-                                ticket['message'],
-                                style: const TextStyle(color: StitchTheme.textMuted, fontSize: 14),
-                              ),
-                              if (isOpen) ...[
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: StitchButton(
-                                        text: 'Close Ticket',
-                                        isSecondary: true,
-                                        onPressed: () => _updateTicketStatus(ticket['id'], 'closed'),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: StitchButton(
-                                        text: 'Respond',
-                                        onPressed: () {
-                                          StitchSnackbar.showInfo(context, 'Direct response feature coming soon');
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
+                      itemBuilder: (context, index) => _buildTicketCard(_tickets[index]),
                     ),
             ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return ListView( // ListView for RefreshIndicator to work
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Center(
+          child: Column(
+            children: [
+              Icon(Icons.support_agent_rounded, size: 64, color: StitchTheme.textMuted.withOpacity(0.3)),
+              const SizedBox(height: 16),
+              Text('No $_currentStatus tickets', style: const TextStyle(color: StitchTheme.textMuted, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTicketCard(Map<String, dynamic> ticket) {
+    final user = ticket['users'];
+    final priority = ticket['priority'] ?? 'normal';
+    final date = DateTime.parse(ticket['updated_at']).toLocal();
+    
+    Color priorityColor;
+    switch (priority) {
+      case 'high': priorityColor = Colors.red; break;
+      case 'normal': priorityColor = Colors.orange; break;
+      case 'low': priorityColor = Colors.blue; break;
+      default: priorityColor = Colors.grey;
+    }
+
+    return StitchCard(
+      onTap: () => context.push('/admin_ticket/${ticket['id']}').then((_) => _fetchTickets()),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: StitchTheme.surfaceHighlight,
+                backgroundImage: user?['avatar_url'] != null ? NetworkImage(user!['avatar_url']) : null,
+                child: user?['avatar_url'] == null ? const Icon(Icons.person, size: 14) : null,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(user?['name'] ?? user?['username'] ?? 'Unknown', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(ticket['category'] ?? 'General', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: priorityColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: priorityColor.withOpacity(0.3))),
+                child: Text(priority.toUpperCase(), style: TextStyle(color: priorityColor, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(ticket['subject'] ?? 'No Subject', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 15)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Updated ${DateFormat('MMM dd, HH:mm').format(date)}',
+                style: const TextStyle(fontSize: 11, color: StitchTheme.textMuted),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: StitchTheme.textMuted, size: 20),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

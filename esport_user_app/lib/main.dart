@@ -19,7 +19,9 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/profile/global_leaderboard_screen.dart';
 import 'features/profile/referral_screen.dart';
 import 'features/profile/settings_screen.dart';
-import 'features/profile/support_screen.dart';
+import 'features/support/support_home_screen.dart';
+import 'features/support/create_ticket_screen.dart';
+import 'features/support/support_chat_screen.dart';
 import 'features/dashboard/edit_profile_screen.dart';
 
 @pragma('vm:entry-point')
@@ -116,7 +118,15 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/support',
-      builder: (context, state) => const SupportScreen(),
+      builder: (context, state) => const SupportHomeScreen(),
+    ),
+    GoRoute(
+      path: '/create_ticket',
+      builder: (context, state) => const CreateTicketScreen(),
+    ),
+    GoRoute(
+      path: '/support_chat/:id',
+      builder: (context, state) => SupportChatScreen(ticketId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/edit_profile',

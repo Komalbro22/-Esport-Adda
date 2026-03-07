@@ -37,6 +37,11 @@ class AdminPermissionService {
   static bool get canSendNotifications =>
       isSuperAdmin || (_perms['can_send_notifications'] == true);
 
+  static bool get canManageSupport =>
+      isSuperAdmin ||
+      (_perms['can_manage_support'] == true) ||
+      (_perms['can_manage_users'] == true);
+
   static bool get canViewDashboard =>
       isSuperAdmin || (_perms['can_view_dashboard'] != false);
 

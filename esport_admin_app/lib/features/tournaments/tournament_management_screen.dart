@@ -87,12 +87,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final isEditing = tournament != null;
     final isCopying = copyFrom != null;
 
-    final gamesRes = await _supabase.from('games').select('id, name');
+    // Fix: Must select is_active to filter active games
+    final gamesRes = await _supabase.from('games').select('id, name, is_active');
     final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(gamesRes);
     final activeGames = games.where((g) => g['is_active'] == true).toList();
 
     if (activeGames.isEmpty && !isEditing) {
-      if (mounted) StitchSnackbar.showError(context, 'Please add a game first');
+      if (mounted) StitchSnackbar.showError(context, 'Please add an active game first');
       return;
     }
 
@@ -667,6 +668,18 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ],
                     const Spacer(),
                     TextButton.icon(
+                      onPressed: () => _confirmDelete(t),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                      label: const Text('DELETE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: StitchTheme.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
                       onPressed: () => context.push('/tournament_admin/${t['id']}'),
                       icon: const Icon(Icons.open_in_new_rounded, size: 14),
                       label: const Text('MANAGE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
@@ -684,6 +697,30 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           ),
         ),
       ),
+    );
+  }
+
+  void _confirmDelete(Map<String, dynamic> tournament) {
+    StitchDialog.show(
+      context: context,
+      title: 'Delete Tournament',
+      content: Text('Delete "${tournament['title']}"? This will also delete all joined teams. This action cannot be undone.', style: const TextStyle(color: StitchTheme.textMuted)),
+      primaryButtonText: 'Delete',
+      primaryButtonColor: StitchTheme.error,
+      onPrimaryPressed: () async {
+        try {
+          await _supabase.from('tournaments').delete().eq('id', tournament['id']);
+          if (mounted) {
+            context.pop();
+            StitchSnackbar.showSuccess(context, 'Tournament deleted');
+            _fetchTournaments();
+          }
+        } catch (e) {
+          if (mounted) StitchSnackbar.showError(context, 'Failed to delete tournament');
+        }
+      },
+      secondaryButtonText: 'Cancel',
+      onSecondaryPressed: () => context.pop(),
     );
   }
 
