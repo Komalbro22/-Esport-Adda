@@ -28,19 +28,29 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         password: _password.text.trim(),
       );
 
-      // Verify Admin Role
+      // Verify Admin Role + block status
       final userRec = await Supabase.instance.client
           .from('users')
-          .select('role')
+          .select('role, is_blocked')
           .eq('id', res.user!.id)
           .single();
 
-      if (userRec['role'] != 'admin' && userRec['role'] != 'superadmin') {
+      if (userRec['is_blocked'] == true) {
+        await Supabase.instance.client.auth.signOut();
+        if (mounted) StitchSnackbar.showError(context, 'Your account has been blocked. Contact super admin.');
+        return;
+      }
+
+      if (!['admin', 'super_admin'].contains(userRec['role'])) {
         await Supabase.instance.client.auth.signOut();
         if (mounted) StitchSnackbar.showError(context, 'Access Denied: Admins Only');
-      } else {
-        if (mounted) context.go('/dashboard');
+        return;
       }
+
+      // Load permissions into memory
+      await AdminPermissionService.load();
+
+      if (mounted) context.go('/dashboard');
     } catch (e) {
       if (mounted) StitchSnackbar.showError(context, e.toString());
     } finally {

@@ -14,22 +14,34 @@ class TournamentManagementScreen extends StatefulWidget {
   State<TournamentManagementScreen> createState() => _TournamentManagementScreenState();
 }
 
-class _TournamentManagementScreenState extends State<TournamentManagementScreen> {
+class _TournamentManagementScreenState extends State<TournamentManagementScreen>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
+  late TabController _tabController;
   bool _isLoading = true;
   List<Map<String, dynamic>> _tournaments = [];
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _fetchTournaments();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchTournaments() async {
     try {
       final data = await _supabase
           .from('tournaments')
-          .select('*, games(name)')
+          .select('*, games(name, logo_url)')
           .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
@@ -42,93 +54,122 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
   }
 
-  void _showAddEditDialog([Map<String, dynamic>? tournament]) async {
+  // ── Filtered lists ────────────────────────────────────────────────────────
+
+  List<Map<String, dynamic>> _filter(List<String> statuses) {
+    return _tournaments.where((t) {
+      final status = t['status']?.toString() ?? '';
+      final matchesStatus = statuses.contains(status);
+      final query = _searchQuery.toLowerCase();
+      final matchesSearch = query.isEmpty ||
+          (t['title']?.toString().toLowerCase().contains(query) ?? false) ||
+          (t['games']?['name']?.toString().toLowerCase().contains(query) ?? false);
+      return matchesStatus && matchesSearch;
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> get _upcoming => _filter(['upcoming']);
+  List<Map<String, dynamic>> get _ongoing => _filter(['ongoing']);
+  // Completed tab shows both completed AND cancelled
+  List<Map<String, dynamic>> get _completed => _filter(['completed', 'cancelled']);
+
+  // ── Copy Tournament ───────────────────────────────────────────────────────
+
+  void _copyTournament(Map<String, dynamic> source) {
+    // Pre-fill with source data but status = upcoming, no start_time, no room info
+    _showAddEditDialog(copyFrom: source);
+  }
+
+  // ── Add / Edit Dialog ─────────────────────────────────────────────────────
+
+  void _showAddEditDialog({Map<String, dynamic>? tournament, Map<String, dynamic>? copyFrom}) async {
+    final source = tournament ?? copyFrom;
     final isEditing = tournament != null;
-    // Fetch games for dropdown
+    final isCopying = copyFrom != null;
+
     final gamesRes = await _supabase.from('games').select('id, name');
     final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(gamesRes);
     final activeGames = games.where((g) => g['is_active'] == true).toList();
-    
+
     if (activeGames.isEmpty && !isEditing) {
-      if (mounted) StitchSnackbar.showError(context, 'Please add a game first before creating a tournament.');
+      if (mounted) StitchSnackbar.showError(context, 'Please add a game first');
       return;
     }
 
-    String selectedGameId = isEditing && games.any((g) => g['id'] == tournament['game_id']) 
-        ? tournament['game_id'] 
+    String selectedGameId = (source != null && games.any((g) => g['id'] == source['game_id']))
+        ? source['game_id']
         : activeGames.first['id'];
 
-    String selectedType = isEditing ? tournament['tournament_type'] : 'solo';
-    final titleCtrl = TextEditingController(text: isEditing ? tournament['title'] : '');
-    final entryFeeCtrl = TextEditingController(text: isEditing ? tournament['entry_fee'].toString() : '0');
-    final perKillCtrl = TextEditingController(text: isEditing ? tournament['per_kill_reward'].toString() : '0');
-    final slotsCtrl = TextEditingController(text: isEditing ? tournament['total_slots'].toString() : '100');
-    final totalPrizeCtrl = TextEditingController(text: isEditing ? (tournament['total_prize_pool']?.toString() ?? '0') : '0');
-    
+    String selectedType = source?['tournament_type'] ?? 'solo';
+    final titleCtrl = TextEditingController(
+        text: isCopying ? '${source!['title']} (Copy)' : (source?['title'] ?? ''));
+    final entryFeeCtrl = TextEditingController(text: source?['entry_fee']?.toString() ?? '0');
+    final perKillCtrl = TextEditingController(text: source?['per_kill_reward']?.toString() ?? '0');
+    final slotsCtrl = TextEditingController(text: source?['total_slots']?.toString() ?? '100');
+    final totalPrizeCtrl = TextEditingController(text: source?['total_prize_pool']?.toString() ?? '0');
+    final bannerCtrl = TextEditingController(text: isCopying ? (source?['banner_url'] ?? '') : (source?['banner_url'] ?? ''));
+    final prizeDescCtrl = TextEditingController(text: source?['prize_description'] ?? '');
+
+    String initialPrizeConfig = '';
+    if (source?['rank_prizes'] != null) {
+      final Map rp = source!['rank_prizes'] as Map;
+      initialPrizeConfig = rp.entries.map((e) => '${e.key}=${e.value}').join(', ');
+    }
+    final prizeConfigCtrl = TextEditingController(text: initialPrizeConfig);
+
     DateTime? selectedDate;
     TimeOfDay? selectedTime;
-    
-    if (isEditing && tournament['start_time'] != null) {
-      final dt = DateTime.parse(tournament['start_time']).toLocal();
+
+    // Only pre-fill date when editing (not copying)
+    if (isEditing && source?['start_time'] != null) {
+      final dt = DateTime.parse(source!['start_time']).toLocal();
       selectedDate = dt;
       selectedTime = TimeOfDay.fromDateTime(dt);
     }
 
-    final startCtrl = TextEditingController(text: selectedDate != null ? DateFormat('MMM dd, yyyy • HH:mm').format(selectedDate!) : '');
-    final bannerCtrl = TextEditingController(text: isEditing ? (tournament['banner_url'] ?? '') : '');
-    final prizeDescCtrl = TextEditingController(text: isEditing ? (tournament['prize_description'] ?? '') : '');
-
-    String initialPrizeConfig = '';
-    if (isEditing && tournament['rank_prizes'] != null) {
-       final Map rp = tournament['rank_prizes'] as Map;
-       // Format as `1=100, 2=50`
-       initialPrizeConfig = rp.entries.map((e) => '${e.key}=${e.value}').join(', ');
-    }
-    final prizeConfigCtrl = TextEditingController(text: initialPrizeConfig);
-    
+    final startCtrl = TextEditingController(
+        text: selectedDate != null ? DateFormat('MMM dd, yyyy • HH:mm').format(selectedDate!) : '');
     bool isUploading = false;
-    bool isFeatured = isEditing ? (tournament['is_featured'] ?? false) : false;
+    bool isFeatured = isEditing ? (source?['is_featured'] ?? false) : false;
 
     Future<void> pickAndUpload(StateSetter setDialogState) async {
-       final picker = ImagePicker();
-       final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-       if (pickedFile == null) return;
-
-       setDialogState(() => isUploading = true);
-       try {
-         final bytes = await pickedFile.readAsBytes();
-         final base64Image = base64Encode(bytes);
-         
-         const apiKey = 'b40febb06056bca6bfdae97dde6b481c';
-         final response = await http.post(
-           Uri.parse('https://api.imgbb.com/1/upload'),
-           body: {
-             'key': apiKey,
-             'image': base64Image,
-           },
-         );
-         
-         if (response.statusCode == 200) {
-           final jsonData = jsonDecode(response.body);
-           final url = jsonData['data']['url'];
-           setDialogState(() {
-              bannerCtrl.text = url;
-              isUploading = false;
-           });
-           StitchSnackbar.showSuccess(context, 'Banner uploaded!');
-         } else {
-           throw Exception();
-         }
-       } catch (e) {
-         setDialogState(() => isUploading = false);
-         StitchSnackbar.showError(context, 'Banner upload failed');
-       }
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (pickedFile == null) return;
+      setDialogState(() => isUploading = true);
+      try {
+        final bytes = await pickedFile.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        const apiKey = 'b40febb06056bca6bfdae97dde6b481c';
+        final response = await http.post(Uri.parse('https://api.imgbb.com/1/upload'),
+            body: {'key': apiKey, 'image': base64Image});
+        if (response.statusCode == 200) {
+          final url = jsonDecode(response.body)['data']['url'];
+          setDialogState(() {
+            bannerCtrl.text = url;
+            isUploading = false;
+          });
+          StitchSnackbar.showSuccess(context, 'Banner uploaded!');
+        } else {
+          throw Exception();
+        }
+      } catch (e) {
+        setDialogState(() => isUploading = false);
+        StitchSnackbar.showError(context, 'Upload failed');
+      }
     }
+
     if (!mounted) return;
+
+    String dialogTitle = isEditing
+        ? 'EDIT TOURNAMENT'
+        : isCopying
+            ? 'COPY TOURNAMENT'
+            : 'NEW TOURNAMENT';
 
     StitchDialog.show(
       context: context,
-      title: isEditing ? 'EDIT TOURNAMENT' : 'NEW TOURNAMENT',
+      title: dialogTitle,
       content: StatefulBuilder(
         builder: (context, setDialogState) {
           return ConstrainedBox(
@@ -139,90 +180,64 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('GAME CATEGORY', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: StitchTheme.surfaceHighlight,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: selectedGameId,
-                        isExpanded: true,
-                        dropdownColor: StitchTheme.surface,
-                        style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14),
-                        items: games.map((g) => DropdownMenuItem<String>(
-                          value: g['id'], 
-                          child: Text(g['name'].toString().toUpperCase())
-                        )).toList(),
-                        onChanged: (v) => setDialogState(() => selectedGameId = v!),
+                  if (isCopying)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  const Text('TOURNAMENT DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                  const SizedBox(height: 12),
-                  StitchInput(label: 'Enter Title', controller: titleCtrl, hintText: 'e.g. Pro Season 1'),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: StitchTheme.surfaceHighlight,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.05)),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedType,
-                              isExpanded: true,
-                              dropdownColor: StitchTheme.surface,
-                              style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold),
-                              items: const [
-                                DropdownMenuItem(value: 'solo', child: Text('SOLO')),
-                                DropdownMenuItem(value: 'duo', child: Text('DUO')),
-                                DropdownMenuItem(value: 'squad', child: Text('SQUAD')),
-                              ],
-                              onChanged: (v) => setDialogState(() => selectedType = v!),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.copy_rounded, color: Colors.amber, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Copied tournament will be saved as UPCOMING regardless of original status.',
+                              style: TextStyle(color: Colors.amber, fontSize: 11),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(child: StitchInput(label: 'Slots', controller: slotsCtrl, keyboardType: TextInputType.number)),
-                    ],
-                  ),
+                    ),
+
+                  const Text('GAME CATEGORY', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  _buildDropdown(games, selectedGameId, (v) => setDialogState(() => selectedGameId = v!)),
+                  const SizedBox(height: 20),
+
+                  const Text('TOURNAMENT DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: StitchInput(label: 'Entry (₹)', controller: entryFeeCtrl, keyboardType: TextInputType.number)),
-                      const SizedBox(width: 12),
-                      Expanded(child: StitchInput(label: 'Per Kill (₹)', controller: perKillCtrl, keyboardType: TextInputType.number)),
-                    ],
-                  ),
+                  StitchInput(label: 'Title', controller: titleCtrl, hintText: 'e.g. Pro Season 1'),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: _buildTypeDropdown(selectedType, (v) => setDialogState(() => selectedType = v!))),
+                    const SizedBox(width: 12),
+                    Expanded(child: StitchInput(label: 'Slots', controller: slotsCtrl, keyboardType: TextInputType.number)),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: StitchInput(label: 'Entry (₹)', controller: entryFeeCtrl, keyboardType: TextInputType.number)),
+                    const SizedBox(width: 12),
+                    Expanded(child: StitchInput(label: 'Per Kill (₹)', controller: perKillCtrl, keyboardType: TextInputType.number)),
+                  ]),
                   const SizedBox(height: 12),
                   StitchInput(label: 'Total Prize Pool (₹)', controller: totalPrizeCtrl, keyboardType: TextInputType.number),
-                  
+
                   const SizedBox(height: 20),
                   const Text('SCHEDULE', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 12),
                   GestureDetector(
                     onTap: () async {
                       final date = await showDatePicker(
-                        context: context, 
-                        initialDate: DateTime.now(), 
-                        firstDate: DateTime.now(), 
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
                         lastDate: DateTime(2030),
                         builder: (context, child) => Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(primary: StitchTheme.primary, surface: StitchTheme.surface),
-                          ),
+                          data: Theme.of(context).copyWith(colorScheme: const ColorScheme.dark(primary: StitchTheme.primary, surface: StitchTheme.surface)),
                           child: child!,
                         ),
                       );
@@ -240,14 +255,14 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     },
                     child: AbsorbPointer(
                       child: StitchInput(
-                        label: 'Start Time', 
-                        controller: startCtrl, 
+                        label: 'Start Time',
+                        controller: startCtrl,
                         prefixIcon: const Icon(Icons.calendar_today_rounded, size: 18, color: StitchTheme.primary),
                         hintText: 'Select date & time',
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
                   const Text('ASSETS & PRIZES', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 12),
@@ -260,10 +275,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                       else
                         Container(
                           decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(10)),
-                          child: IconButton(
-                            icon: const Icon(Icons.add_photo_alternate_rounded, color: StitchTheme.primary, size: 20),
-                            onPressed: () => pickAndUpload(setDialogState),
-                          ),
+                          child: IconButton(icon: const Icon(Icons.add_photo_alternate_rounded, color: StitchTheme.primary, size: 20), onPressed: () => pickAndUpload(setDialogState)),
                         ),
                       const SizedBox(width: 8),
                       Container(
@@ -272,37 +284,34 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           icon: const Icon(Icons.collections_rounded, color: StitchTheme.primary, size: 20),
                           onPressed: () async {
                             final selectedUrl = await context.push<String?>('/assets?selection=true');
-                            if (selectedUrl != null) {
-                              setDialogState(() => bannerCtrl.text = selectedUrl);
-                            }
+                            if (selectedUrl != null) setDialogState(() => bannerCtrl.text = selectedUrl);
                           },
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Tournament Description and Rules', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter description or rules...'),
+                  StitchInput(label: 'Description & Rules', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter description or rules...'),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Prize Configuration (Format: 1=100, 2=50)', controller: prizeConfigCtrl, maxLines: 2, hintText: '1=500, 2=200, 3=100'),
+                  StitchInput(label: 'Prize Config (1=500, 2=200, 3=100)', controller: prizeConfigCtrl, maxLines: 2, hintText: '1=500, 2=200, 3=100'),
                   const SizedBox(height: 20),
                   SwitchListTile(
-                    title: const Text('FEATURED TOURNAMENT', style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-                    subtitle: const Text('Show this tournament in the home screen carousel', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                    title: const Text('FEATURED', style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                    subtitle: const Text('Show in home screen carousel', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
                     value: isFeatured,
                     activeColor: StitchTheme.primary,
-                    activeTrackColor: StitchTheme.primary.withOpacity(0.2),
                     onChanged: (v) => setDialogState(() => isFeatured = v),
                   ),
                 ],
               ),
             ),
           );
-        }
+        },
       ),
-      primaryButtonText: isEditing ? 'SAVE CHANGES' : 'CREATE TOURNAMENT',
+      primaryButtonText: isEditing ? 'SAVE CHANGES' : isCopying ? 'CREATE COPY' : 'CREATE TOURNAMENT',
       onPrimaryPressed: () async {
         if (titleCtrl.text.trim().isEmpty || selectedDate == null || selectedTime == null) {
-          StitchSnackbar.showError(context, 'Missing required fields');
+          StitchSnackbar.showError(context, 'Title and start time are required');
           return;
         }
 
@@ -310,15 +319,12 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         Map<String, dynamic>? rankPrizes;
         if (prizeConfigCtrl.text.trim().isNotEmpty) {
           rankPrizes = {};
-          final pairs = prizeConfigCtrl.text.split(',');
-          for (var p in pairs) {
+          for (var p in prizeConfigCtrl.text.split(',')) {
             final parts = p.split('=');
             if (parts.length == 2) {
               final rank = parts[0].trim();
               final amount = double.tryParse(parts[1].trim());
-              if (amount != null) {
-                rankPrizes[rank] = amount;
-              }
+              if (amount != null) rankPrizes[rank] = amount;
             }
           }
         }
@@ -342,170 +348,401 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           if (isEditing) {
             await _supabase.from('tournaments').update(payload).eq('id', tournament['id']);
           } else {
+            // New or Copy → always upcoming
+            payload['status'] = 'upcoming';
+            payload['joined_slots'] = 0;
             payload['created_by'] = _supabase.auth.currentUser!.id;
             await _supabase.from('tournaments').insert(payload);
           }
-          
+
           if (mounted) {
             context.pop();
-            StitchSnackbar.showSuccess(context, isEditing ? 'Tournament updated successfully' : 'Tournament created successfully');
+            StitchSnackbar.showSuccess(context, isEditing ? 'Tournament updated' : isCopying ? 'Tournament copied!' : 'Tournament created');
             _fetchTournaments();
           }
         } catch (e) {
-          if (mounted) StitchSnackbar.showError(context, isEditing ? 'Error updating tournament' : 'Error creating tournament');
+          if (mounted) StitchSnackbar.showError(context, 'Error saving tournament');
         }
       },
     );
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // UI Build
+  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: StitchTheme.background,
       appBar: AppBar(
-        title: const Text('TOURNAMENT CONTROL', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 18)),
-        centerTitle: true,
+        title: const Text('Tournament Management', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: StitchTheme.primary,
+          indicatorWeight: 3,
+          labelColor: StitchTheme.primary,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 0.5),
+          unselectedLabelColor: StitchTheme.textMuted,
+          tabs: [
+            Tab(text: 'UPCOMING (${_upcoming.length})'),
+            Tab(text: 'ONGOING (${_ongoing.length})'),
+            Tab(text: 'COMPLETED (${_completed.length})'),
+          ],
+        ),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final double maxWidth = constraints.maxWidth > 800 ? 800 : constraints.maxWidth;
-          final ScrollController scrollController = ScrollController();
-          
-          if (_isLoading) return const StitchLoading();
-
-          return Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Scrollbar(
-                controller: scrollController,
-                thumbVisibility: true,
-                child: RefreshIndicator(
-                  onRefresh: _fetchTournaments,
-                  color: StitchTheme.primary,
-                  child: ListView.separated(
-                    controller: scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _tournaments.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final t = _tournaments[index];
-                      final status = t['status'].toString();
-                      return StitchCard(
-                        onTap: () => context.push('/tournament_admin/${t['id']}'),
-                        padding: EdgeInsets.zero,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                              colors: [
-                                _getStatusColor(status).withOpacity(0.05),
-                                Colors.transparent,
-                              ],
-                            ),
-                          ),
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: StitchTheme.surfaceHighlight,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
-                                ),
-                                child: Icon(
-                                  status == 'ongoing' ? Icons.play_circle_filled_rounded : 
-                                  status == 'upcoming' ? Icons.event_rounded : Icons.check_circle_rounded,
-                                  color: _getStatusColor(status),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(t['title'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: StitchTheme.textMain)),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          t['games']?['name']?.toString().toUpperCase() ?? 'GAME', 
-                                          style: const TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Text('•', style: TextStyle(color: Colors.white24)),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          t['start_time'] != null ? DateFormat('MMM dd, HH:mm').format(DateTime.parse(t['start_time']).toLocal()) : 'TBA', 
-                                          style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(status).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: _getStatusColor(status).withOpacity(0.2)),
-                                    ),
-                                    child: Text(
-                                      status.toUpperCase(),
-                                      style: TextStyle(color: _getStatusColor(status), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    '${t['joined_slots']}/${t['total_slots']} SLOTS', 
-                                    style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)
-                                  ),
-                                  if (status == 'upcoming' || status == 'ongoing')
-                                    TextButton(
-                                      onPressed: () => _showAddEditDialog(t),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.fromLTRB(16, 8, 0, 0),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: const Text('EDIT', style: TextStyle(color: StitchTheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
-                                    )
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+      body: _isLoading
+          ? const StitchLoading()
+          : Column(
+              children: [
+                // Search bar
+                Container(
+                  color: StitchTheme.surface,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    decoration: InputDecoration(
+                      hintText: 'Search tournaments, games...',
+                      hintStyle: const TextStyle(color: StitchTheme.textMuted, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, color: StitchTheme.textMuted, size: 20),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close_rounded, color: StitchTheme.textMuted, size: 18),
+                              onPressed: () => setState(() {
+                                _searchCtrl.clear();
+                                _searchQuery = '';
+                              }),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: StitchTheme.surfaceHighlight,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
                   ),
                 ),
-              ),
+
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTournamentList(_upcoming),
+                      _buildTournamentList(_ongoing),
+                      _buildTournamentList(_completed),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          );
-        }
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(),
         backgroundColor: StitchTheme.primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.black),
-        label: const Text('NEW TOURNAMENT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 12)),
+        child: const Icon(Icons.add_rounded, color: Colors.black, size: 28),
       ),
     );
   }
 
+  Widget _buildTournamentList(List<Map<String, dynamic>> tournaments) {
+    if (tournaments.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.emoji_events_outlined, size: 56, color: StitchTheme.textMuted.withOpacity(0.3)),
+            const SizedBox(height: 12),
+            const Text('No tournaments found', style: TextStyle(color: StitchTheme.textMuted, fontSize: 14)),
+          ],
+        ),
+      );
+    }
+
+    // Group by date
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final t in tournaments) {
+      final dateKey = t['start_time'] != null
+          ? DateFormat('MMMM dd, yyyy').format(DateTime.parse(t['start_time']).toLocal()).toUpperCase()
+          : 'NO DATE SET';
+      grouped.putIfAbsent(dateKey, () => []).add(t);
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchTournaments,
+      color: StitchTheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 80),
+        itemCount: grouped.length,
+        itemBuilder: (context, groupIndex) {
+          final dateKey = grouped.keys.elementAt(groupIndex);
+          final items = grouped[dateKey]!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: Row(
+                  children: [
+                    Text(dateKey, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 1)),
+                    const SizedBox(width: 8),
+                    Container(height: 1, width: 20, color: StitchTheme.surfaceHighlight),
+                    const Spacer(),
+                    Text('${items.length} Tournament${items.length > 1 ? 's' : ''}',
+                        style: const TextStyle(fontSize: 11, color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              ...items.map((t) => _buildTournamentTile(t)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTournamentTile(Map<String, dynamic> t) {
+    final status = t['status']?.toString() ?? 'upcoming';
+    final statusColor = _getStatusColor(status);
+    final entryFee = (t['entry_fee'] as num?)?.toDouble() ?? 0;
+    final joinedSlots = t['joined_slots'] ?? 0;
+    final totalSlots = t['total_slots'] ?? 0;
+    final slotProgress = totalSlots > 0 ? joinedSlots / totalSlots : 0.0;
+    final startTime = t['start_time'] != null
+        ? DateTime.parse(t['start_time']).toLocal()
+        : null;
+    final bannerUrl = t['banner_url'];
+    final gameName = t['games']?['name']?.toString() ?? 'Game';
+    final type = t['tournament_type']?.toString().toUpperCase() ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/tournament_admin/${t['id']}'),
+        child: Container(
+          decoration: BoxDecoration(
+            color: StitchTheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.04)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Banner / Game logo
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: bannerUrl != null
+                          ? Image.network(bannerUrl, width: 60, height: 60, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _placeholderIcon(statusColor))
+                          : _placeholderIcon(statusColor),
+                    ),
+                    const SizedBox(width: 14),
+
+                    // Main info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title + fee
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(t['title'] ?? '',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: StitchTheme.textMain, height: 1.2)),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                entryFee == 0 ? 'Free' : '₹${entryFee.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: entryFee == 0 ? Colors.green : StitchTheme.textMain,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+
+                          // Game • Type badge
+                          Row(
+                            children: [
+                              Text(gameName, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: statusColor.withOpacity(0.25)),
+                                ),
+                                child: Text(
+                                  status == 'cancelled' ? 'CANCELLED' : status.toUpperCase(),
+                                  style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(type, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 9, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Time & slots row
+                          Row(
+                            children: [
+                              const Icon(Icons.schedule_rounded, size: 13, color: StitchTheme.textMuted),
+                              const SizedBox(width: 4),
+                              Text(
+                                startTime != null ? DateFormat('hh:mm a').format(startTime) : 'TBA',
+                                style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12),
+                              ),
+                              const SizedBox(width: 16),
+                              const Icon(Icons.group_rounded, size: 13, color: StitchTheme.textMuted),
+                              const SizedBox(width: 4),
+                              Text('$joinedSlots/$totalSlots Teams',
+                                  style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: StitchTheme.textMuted, size: 20),
+                  ],
+                ),
+              ),
+
+              // Slot progress bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: slotProgress.clamp(0.0, 1.0),
+                    backgroundColor: StitchTheme.surfaceHighlight,
+                    color: statusColor,
+                    minHeight: 3,
+                  ),
+                ),
+              ),
+
+              // Action buttons row
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                child: Row(
+                  children: [
+                    // Copy button — always available
+                    TextButton.icon(
+                      onPressed: () => _copyTournament(t),
+                      icon: const Icon(Icons.copy_rounded, size: 14),
+                      label: const Text('COPY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.amber,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    if (status == 'upcoming' || status == 'ongoing') ...[
+                      TextButton.icon(
+                        onPressed: () => _showAddEditDialog(tournament: t),
+                        icon: const Icon(Icons.edit_rounded, size: 14),
+                        label: const Text('EDIT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: StitchTheme.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => context.push('/tournament_admin/${t['id']}'),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                      label: const Text('MANAGE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: StitchTheme.textMuted,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderIcon(Color color) {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(Icons.emoji_events_rounded, color: color, size: 28),
+    );
+  }
+
+  Widget _buildDropdown(List<Map<String, dynamic>> games, String value, ValueChanged<String?> onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: StitchTheme.surface,
+          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14),
+          items: games.map((g) => DropdownMenuItem<String>(value: g['id'], child: Text(g['name'].toString().toUpperCase()))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeDropdown(String value, ValueChanged<String?> onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: StitchTheme.surface,
+          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold),
+          items: const [
+            DropdownMenuItem(value: 'solo', child: Text('SOLO')),
+            DropdownMenuItem(value: 'duo', child: Text('DUO')),
+            DropdownMenuItem(value: 'squad', child: Text('SQUAD')),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
 
   Color _getStatusColor(String status) {
     switch (status) {
       case 'upcoming': return StitchTheme.secondary;
       case 'ongoing': return StitchTheme.warning;
       case 'completed': return StitchTheme.success;
+      case 'cancelled': return Colors.red;
       default: return StitchTheme.textMuted;
     }
   }

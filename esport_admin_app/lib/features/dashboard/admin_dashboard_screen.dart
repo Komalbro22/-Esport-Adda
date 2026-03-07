@@ -105,7 +105,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           IconButton(
             icon: const Icon(Icons.power_settings_new_rounded, color: StitchTheme.error),
             onPressed: () async {
-               await _supabase.auth.signOut();
+                AdminPermissionService.clear();
+                await _supabase.auth.signOut();
                if (context.mounted) context.go('/login');
             },
           ),
@@ -199,6 +200,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _buildNavCard('FINANCES', Icons.account_balance_rounded, '/finances'),
                             _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
                             _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),
+                            if (AdminPermissionService.isSuperAdmin)
+                              _buildNavCard('ADMINS', Icons.shield_rounded, '/admin_management', color: Colors.amber),
                           ],
                         ),
                         
@@ -264,14 +267,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildNavCard(String label, IconData icon, String route, {int badge = 0}) {
+  Widget _buildNavCard(String label, IconData icon, String route, {int badge = 0, Color? color}) {
+    final cardColor = color ?? StitchTheme.primary;
     return GestureDetector(
       onTap: () => context.push(route),
       child: Container(
         decoration: BoxDecoration(
           color: StitchTheme.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: color != null ? color.withOpacity(0.2) : Colors.white.withOpacity(0.05)),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
@@ -279,16 +283,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: StitchTheme.primary.withOpacity(0.05),
+                color: cardColor.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: StitchTheme.primary, size: 20),
+              child: Icon(icon, color: cardColor, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5),
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.5, color: color),
               ),
             ),
             if (badge > 0)

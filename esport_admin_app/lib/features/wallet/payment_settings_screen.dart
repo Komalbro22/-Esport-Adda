@@ -14,11 +14,14 @@ class PaymentSettingsScreen extends StatefulWidget {
 
 class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
   final _supabase = Supabase.instance.client;
-  final _upiCtrl = TextEditingController();
+  final _upiIdCtrl = TextEditingController();
+  final _upiNameCtrl = TextEditingController();
+  final _minDepositCtrl = TextEditingController(text: '10');
   bool _isLoading = true;
   bool _isSaving = false;
   String? _qrCodeUrl;
-  final String _imgbbApiKey = 'b40febb06056bca6bfdae97dde6b481c'; // From user request
+  String? _existingId;
+  final String _imgbbApiKey = 'b40febb06056bca6bfdae97dde6b481c';
 
   @override
   void initState() {
@@ -30,8 +33,11 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     try {
       final res = await _supabase.from('payment_settings').select().maybeSingle();
       if (res != null) {
-        _upiCtrl.text = res['upi_id'] ?? '';
-        _qrCodeUrl = res['qr_code_url'];
+        _existingId = res['id']?.toString();
+        _upiIdCtrl.text = res['upi_id'] ?? '';
+        _upiNameCtrl.text = res['upi_name'] ?? '';
+        _minDepositCtrl.text = (res['minimum_deposit'] ?? 10).toString();
+        _qrCodeUrl = res['upi_qr_url'] ?? res['qr_code_url'];
       }
     } catch (e) {
       if (mounted) StitchSnackbar.showError(context, 'Failed to load settings');
@@ -40,17 +46,15 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     }
   }
 
-  Future<void> _pickAndUploadImage() async {
+  Future<void> _pickAndUploadQR() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
     if (pickedFile == null) return;
 
     setState(() => _isSaving = true);
-
     try {
       final bytes = await pickedFile.readAsBytes();
       final base64Image = base64Encode(bytes);
-
       final uri = Uri.parse('https://api.imgbb.com/1/upload');
       final request = http.MultipartRequest('POST', uri)
         ..fields['key'] = _imgbbApiKey
@@ -61,42 +65,47 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
       final jsonData = jsonDecode(responseData);
 
       if (jsonData['success'] == true) {
-        setState(() {
-          _qrCodeUrl = jsonData['data']['url'];
-        });
-        StitchSnackbar.showSuccess(context, 'QR Code uploaded temporarily. Save changes to keep it.');
+        setState(() => _qrCodeUrl = jsonData['data']['url']);
+        StitchSnackbar.showSuccess(context, 'QR uploaded — click Save to apply');
       } else {
-        throw Exception('ImgBB API returned an error');
+        throw Exception();
       }
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, 'Failed to upload image. Please try again.');
+      if (mounted) StitchSnackbar.showError(context, 'Upload failed. Try again.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Future<void> _saveSettings() async {
+    if (_upiIdCtrl.text.trim().isEmpty) {
+      StitchSnackbar.showError(context, 'UPI ID is required');
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
-      final existing = await _supabase.from('payment_settings').select('id').maybeSingle();
+      // Use a fixed UUID string to ensure we only ever have ONE row
+      const String settingsId = '00000000-0000-0000-0000-000000000001';
       
       final data = {
-        'upi_id': _upiCtrl.text.trim(),
-        'qr_code_url': _qrCodeUrl ?? '',
+        'id': settingsId,
+        'upi_id': _upiIdCtrl.text.trim(),
+        'upi_name': _upiNameCtrl.text.trim(),
+        'upi_qr_url': _qrCodeUrl ?? '',
+        'qr_code_url': _qrCodeUrl ?? '', 
+        'minimum_deposit': double.tryParse(_minDepositCtrl.text.trim()) ?? 10,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      if (existing != null) {
-        await _supabase.from('payment_settings').update(data).eq('id', existing['id']);
-      } else {
-        await _supabase.from('payment_settings').insert(data);
-      }
+      // Use upsert to overwrite the master row
+      await _supabase.from('payment_settings').upsert(data);
 
       if (mounted) {
         StitchSnackbar.showSuccess(context, 'Payment settings saved successfully!');
       }
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, 'Failed to save settings.');
+      if (mounted) StitchSnackbar.showError(context, 'Failed to save settings: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -104,82 +113,161 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: StitchLoading());
-    }
+    if (_isLoading) return const Scaffold(body: StitchLoading());
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Settings'),
-      ),
+      appBar: AppBar(title: const Text('Payment Settings')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: StitchCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Configure UPI and QR Code for Deposits',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: StitchTheme.textMain),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Info banner
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: StitchTheme.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: StitchTheme.primary.withOpacity(0.2)),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'These details will be shown to users when they add money to their wallet.',
-                style: TextStyle(color: StitchTheme.textMuted, fontSize: 12),
-              ),
-              const Divider(height: 32, color: StitchTheme.surfaceHighlight),
-              
-              StitchInput(
-                label: 'UPI ID',
-                controller: _upiCtrl,
-                hintText: 'e.g. yourname@upi',
-              ),
-              
-              const SizedBox(height: 24),
-              const Text('QR Code Image', style: TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
-              const SizedBox(height: 12),
-              
-              Center(
-                child: GestureDetector(
-                  onTap: _isSaving ? null : _pickAndUploadImage,
-                  child: Container(
-                    height: 200,
-                    width: 200,
-                    decoration: BoxDecoration(
-                      color: StitchTheme.surfaceHighlight,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: StitchTheme.primary.withOpacity(0.5)),
-                      image: _qrCodeUrl != null && _qrCodeUrl!.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(_qrCodeUrl!),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: StitchTheme.primary, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'These settings control how users pay. A UPI deep link is generated automatically from the UPI ID.',
+                      style: TextStyle(color: StitchTheme.primary, fontSize: 12),
                     ),
-                    child: _qrCodeUrl == null || _qrCodeUrl!.isEmpty
-                        ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.qr_code_scanner, size: 48, color: StitchTheme.textMuted),
-                              SizedBox(height: 8),
-                              Text('Tap to upload QR', style: TextStyle(color: StitchTheme.textMuted)),
-                            ],
-                          )
-                        : null,
                   ),
-                ),
+                ],
               ),
-              
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: StitchButton(
-                  text: _isSaving ? 'Saving...' : 'Save Settings',
-                  onPressed: _isSaving ? null : _saveSettings,
-                ),
+            ),
+            const SizedBox(height: 24),
+
+            // UPI Settings Card
+            StitchCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('UPI DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'UPI ID',
+                    controller: _upiIdCtrl,
+                    hintText: 'e.g. esportadda@upi',
+                    prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                  ),
+                  const SizedBox(height: 12),
+                  StitchInput(
+                    label: 'Display Name (shown to users)',
+                    controller: _upiNameCtrl,
+                    hintText: 'e.g. Esport Adda',
+                    prefixIcon: const Icon(Icons.badge_outlined),
+                  ),
+                  const SizedBox(height: 12),
+                  StitchInput(
+                    label: 'Minimum Deposit (₹)',
+                    controller: _minDepositCtrl,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // QR Code Card
+            StitchCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('QR CODE', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+                  const SizedBox(height: 4),
+                  const Text('Users can scan this to pay directly', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: GestureDetector(
+                      onTap: _isSaving ? null : _pickAndUploadQR,
+                      child: Container(
+                        height: 200,
+                        width: 200,
+                        decoration: BoxDecoration(
+                          color: StitchTheme.surfaceHighlight,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _qrCodeUrl != null
+                                ? StitchTheme.primary.withOpacity(0.3)
+                                : StitchTheme.surfaceHighlight,
+                            width: 2,
+                          ),
+                          image: _qrCodeUrl != null && _qrCodeUrl!.isNotEmpty
+                              ? DecorationImage(image: NetworkImage(_qrCodeUrl!), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: _qrCodeUrl == null || _qrCodeUrl!.isEmpty
+                            ? const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.qr_code_scanner_rounded, size: 48, color: StitchTheme.textMuted),
+                                  SizedBox(height: 8),
+                                  Text('Tap to upload QR', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                                ],
+                              )
+                            : Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: StitchTheme.primary.withOpacity(0.9),
+                                    borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(14), bottomRight: Radius.circular(14)),
+                                  ),
+                                  child: const Text('TAP TO CHANGE', textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w900)),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Preview UPI link
+                  if (_upiIdCtrl.text.trim().isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: StitchTheme.background,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('PREVIEW LINK', style: TextStyle(color: StitchTheme.textMuted, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                          const SizedBox(height: 4),
+                          SelectableText(
+                            'upi://pay?pa=${_upiIdCtrl.text.trim()}&pn=${Uri.encodeComponent(_upiNameCtrl.text.trim())}&am=100&cu=INR',
+                            style: const TextStyle(color: StitchTheme.primary, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: StitchButton(
+                text: 'Save Payment Settings',
+                isLoading: _isSaving,
+                onPressed: _isSaving ? null : _saveSettings,
+              ),
+            ),
+          ],
         ),
       ),
     );

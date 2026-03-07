@@ -13,3 +13,5 @@ export 'ui/tournament_countdown.dart';
 export 'ui/slot_progress_bar.dart';
 export 'ui/live_indicator.dart';
 export 'services/imgbb_service.dart';
+export 'services/admin_permission_service.dart';
+export 'services/admin_log_service.dart';

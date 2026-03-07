@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
@@ -125,6 +126,38 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
                             )
                           ],
                         ),
+                        if (req['transaction_id'] != null && req['transaction_id'].toString().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: StitchTheme.surfaceHighlight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.tag_rounded, size: 14, color: StitchTheme.textMuted),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'TXN ID: ${req['transaction_id']}',
+                                    style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 16, color: StitchTheme.secondary),
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: req['transaction_id'].toString()));
+                                    StitchSnackbar.showSuccess(context, 'Transaction ID copied!');
+                                  },
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (req['screenshot_url'] != null) ...[
                           const SizedBox(height: 12),
                           GestureDetector(
