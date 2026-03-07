@@ -13,6 +13,10 @@ class AppSettingsScreen extends StatefulWidget {
 class _AppSettingsScreenState extends State<AppSettingsScreen> {
   final _supabase = Supabase.instance.client;
   final _nameController = TextEditingController();
+  final _signupBonusController = TextEditingController();
+  final _referralSenderController = TextEditingController();
+  final _referralReceiverController = TextEditingController();
+  final _leaderboardLimitController = TextEditingController();
   
   bool _isLoading = true;
   bool _isSaving = false;
@@ -36,6 +40,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             _nameController.text = data['app_name'] ?? 'Esport Adda';
             _logoUrl = data['logo_url'];
             _adminLogoUrl = data['admin_logo_url'];
+            _signupBonusController.text = (data['signup_bonus'] ?? 0).toString();
+            _referralSenderController.text = (data['referral_bonus_sender'] ?? 0).toString();
+            _referralReceiverController.text = (data['referral_bonus_receiver'] ?? 0).toString();
+            _leaderboardLimitController.text = (data['leaderboard_limit'] ?? 50).toString();
           }
           _isLoading = false;
         });
@@ -106,6 +114,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
         'app_name': _nameController.text.trim(),
         'logo_url': _logoUrl,
         'admin_logo_url': _adminLogoUrl,
+        'signup_bonus': double.tryParse(_signupBonusController.text) ?? 10,
+        'referral_bonus_sender': double.tryParse(_referralSenderController.text) ?? 10,
+        'referral_bonus_receiver': double.tryParse(_referralReceiverController.text) ?? 10,
+        'leaderboard_limit': int.tryParse(_leaderboardLimitController.text) ?? 50,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
@@ -184,6 +196,46 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                     label: 'App Name',
                     controller: _nameController,
                     hintText: 'e.g., Esport Adda',
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            StitchCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Bonuses & Referrals', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
+                  const SizedBox(height: 24),
+                  StitchInput(
+                    label: 'Signup Bonus (₹)',
+                    controller: _signupBonusController,
+                    keyboardType: TextInputType.number,
+                    hintText: 'Given to every new user',
+                  ),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'Referral Bonus - Sender (₹)',
+                    controller: _referralSenderController,
+                    keyboardType: TextInputType.number,
+                    hintText: 'Given to the referrer',
+                  ),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'Referral Bonus - Receiver (₹)',
+                    controller: _referralReceiverController,
+                    keyboardType: TextInputType.number,
+                    hintText: 'Given to the person who joins',
+                  ),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'Leaderboard Display Limit',
+                    controller: _leaderboardLimitController,
+                    keyboardType: TextInputType.number,
+                    hintText: 'Number of players to show in leaderboard',
                   ),
                 ],
               ),

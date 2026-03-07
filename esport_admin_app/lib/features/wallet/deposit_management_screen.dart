@@ -7,7 +7,8 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 
 class DepositManagementScreen extends StatefulWidget {
-  const DepositManagementScreen({Key? key}) : super(key: key);
+  final bool isTab;
+  const DepositManagementScreen({Key? key, this.isTab = false}) : super(key: key);
 
   @override
   State<DepositManagementScreen> createState() => _DepositManagementScreenState();
@@ -82,7 +83,7 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.isTab ? null : AppBar(
         title: const Text('Deposit Requests'),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),

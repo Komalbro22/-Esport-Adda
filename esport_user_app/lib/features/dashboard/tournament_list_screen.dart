@@ -305,7 +305,7 @@ class _TournamentListViewState extends State<_TournamentListView> {
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
-                                        '₹${(t['total_slots'] * t['entry_fee'] * 0.8).toInt()}', // Approximation for demo
+                                        '₹${t['total_prize_pool'] ?? 0}',
                                         style: const TextStyle(color: Colors.greenAccent, fontSize: 16, fontWeight: FontWeight.w900),
                                       ),
                                     ],
@@ -549,7 +549,7 @@ class _CompletedTournamentCard extends StatelessWidget {
                     children: [
                       const Text('PRIZE POOL', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      Text('₹${(t['total_slots'] * t['entry_fee'] * 0.8).toInt()}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.w900)),
+                      Text('₹${t['total_prize_pool'] ?? 0}', style: const TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.w900)),
                     ],
                   ),
                 ),

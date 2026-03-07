@@ -54,7 +54,6 @@ class _SignupScreenState extends State<SignupScreen> {
         // Apply referral if given (Edge Function)
         final refCode = _referralController.text.trim();
         if (refCode.isNotEmpty) {
-        if (refCode.isNotEmpty) {
            await Supabase.instance.client.functions.invoke(
              'apply_referral_bonus',
              body: {
@@ -62,7 +61,6 @@ class _SignupScreenState extends State<SignupScreen> {
                'new_user_id': response.user!.id
              },
            );
-        }
         }
 
         if (mounted) {

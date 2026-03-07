@@ -14,6 +14,7 @@ import 'features/dashboard/tournament_detail_screen.dart';
 import 'features/dashboard/join_tournament_form_screen.dart';
 import 'features/dashboard/match_results_screen.dart';
 import 'features/dashboard/my_matches_screen.dart';
+import 'features/dashboard/wallet_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/profile/global_leaderboard_screen.dart';
 import 'features/profile/referral_screen.dart';
@@ -92,6 +93,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/my_matches',
       builder: (context, state) => const MyMatchesScreen(),
+    ),
+    GoRoute(
+      path: '/wallet',
+      builder: (context, state) => const WalletScreen(),
     ),
     GoRoute(
       path: '/global_leaderboard',

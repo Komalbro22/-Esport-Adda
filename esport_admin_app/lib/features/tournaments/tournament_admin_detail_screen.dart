@@ -143,6 +143,63 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
     return true;
   }
 
+  void _confirmCancel() {
+    StitchDialog.show(
+      context: context,
+      title: 'Cancel Tournament?',
+      content: const Text('This will instantly cancel the tournament and refund all joined players exactly what they paid from deposit/winning wallets. This cannot be undone.', style: TextStyle(color: StitchTheme.textMuted)),
+      primaryButtonText: 'Yes, Cancel & Refund',
+      primaryButtonColor: StitchTheme.error,
+      secondaryButtonText: 'Go Back',
+      onSecondaryPressed: () => context.pop(),
+      onPrimaryPressed: () async {
+        context.pop();
+        setState(() => _isLoading = true);
+        try {
+          final res = await _supabase.functions.invoke('cancel_tournament', body: {
+            'tournament_id': widget.tournamentId
+          });
+          if (res.status == 200) {
+            if (mounted) StitchSnackbar.showSuccess(context, 'Tournament cancelled & refunded');
+          } else {
+            throw Exception(res.data?['error'] ?? 'Unknown error');
+          }
+        } catch (e) {
+          if (mounted) StitchSnackbar.showError(context, 'Failed to cancel: $e');
+        } finally {
+          _fetchData();
+        }
+      }
+    );
+  }
+
+  void _confirmDeleteTournament() {
+    StitchDialog.show(
+      context: context,
+      title: 'Delete Tournament',
+      content: const Text('Are you sure you want to permanently delete this tournament? This will remove all associated teams and it cannot be undone.', style: TextStyle(color: StitchTheme.textMuted)),
+      primaryButtonText: 'Delete',
+      primaryButtonColor: StitchTheme.error,
+      secondaryButtonText: 'Cancel',
+      onSecondaryPressed: () => context.pop(),
+      onPrimaryPressed: () async {
+        context.pop();
+        setState(() => _isLoading = true);
+        try {
+          await _supabase.from('tournaments').delete().eq('id', widget.tournamentId);
+          if (mounted) {
+            StitchSnackbar.showSuccess(context, 'Tournament deleted successfully');
+            context.pop(); // Go back to management screen
+          }
+        } catch (e) {
+          if (mounted) StitchSnackbar.showError(context, 'Failed to delete tournament: $e');
+        } finally {
+          if (mounted) setState(() => _isLoading = false);
+        }
+      }
+    );
+  }
+
   void _showResultEntryDialog(Map<String, dynamic> team) {
     if (_tournament!['status'] == 'completed') return; // Readonly if completed
 
@@ -411,11 +468,29 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                               StitchButton(text: 'START TOURNAMENT', onPressed: () => _updateStatus('ongoing')),
                             ] else if (status == 'ongoing') ...[
                               StitchButton(text: 'FINISH & CALCULATE PRIZES', onPressed: () => _updateStatus('completed')),
-                            ] else ...[
+                            ] else if (status == 'completed') ...[
                               const Center(
-                                child: Text('TOURNAMENT ARCHIVED', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 12)),
+                                child: Text('TOURNAMENT COMPLETED', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 12)),
                               ),
-                            ]
+                            ] else ...[
+                               const Center(
+                                child: Text('TOURNAMENT CANCELLED', style: TextStyle(color: StitchTheme.error, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 12)),
+                              ),
+                            ],
+
+                            if (status == 'upcoming' || status == 'ongoing') ...[
+                               const SizedBox(height: 12),
+                               StitchButton(text: 'CANCEL TOURNAMENT', isSecondary: true, onPressed: _confirmCancel),
+                            ],
+
+                            if (status == 'completed' || status == 'cancelled') ...[
+                               const SizedBox(height: 16),
+                               StitchButton(
+                                 text: 'DELETE TOURNAMENT',
+                                 customColor: StitchTheme.error,
+                                 onPressed: _confirmDeleteTournament,
+                               ),
+                            ],
                           ],
                         ),
                       ),

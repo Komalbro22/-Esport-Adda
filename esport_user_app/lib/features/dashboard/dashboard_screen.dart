@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'home_tab.dart';
 import 'wallet_tab.dart';
 import 'profile_tab.dart';
+import 'my_matches_screen.dart';
+import '../profile/global_leaderboard_screen.dart';
 import '../notifications/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -20,7 +22,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Widget> _pages = [
     const HomeTab(),
-    const WalletTab(),
+    const MyMatchesScreen(isBottomNav: true),
+    const GlobalLeaderboardScreen(isBottomNav: true),
     const ProfileTab(),
   ];
 
@@ -82,9 +85,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Games',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined, size: 24),
-              activeIcon: Icon(Icons.account_balance_wallet, size: 26),
-              label: 'Wallet',
+              icon: Icon(Icons.history_rounded, size: 24),
+              activeIcon: Icon(Icons.history_rounded, size: 26),
+              label: 'Matches',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.leaderboard_outlined, size: 24),
+              activeIcon: Icon(Icons.leaderboard, size: 26),
+              label: 'Ranking',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline_rounded, size: 24),

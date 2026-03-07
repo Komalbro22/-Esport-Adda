@@ -18,13 +18,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
   bool _isLoading = true;
   Map<String, dynamic>? _user;
   Map<String, dynamic>? _wallet;
+  Map<String, dynamic>? _referrer;
   List<Map<String, dynamic>> _matches = [];
   List<Map<String, dynamic>> _transactions = [];
+  List<Map<String, dynamic>> _referredUsers = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _fetchData();
   }
 
@@ -45,12 +47,28 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           .eq('user_id', widget.userId)
           .order('created_at', ascending: false);
 
+      // Fetch referral data
+      Map<String, dynamic>? referredBy;
+      if (user['referred_by'] != null) {
+        try {
+          referredBy = await _supabase.from('users').select('id, username').eq('referral_code', user['referred_by']).single();
+        } catch (_) {}
+      }
+
+      final referrals = await _supabase
+          .from('users')
+          .select('id, username, created_at')
+          .eq('referred_by', user['referral_code'])
+          .order('created_at', ascending: false);
+
       if (mounted) {
         setState(() {
           _user = user;
           _wallet = wallet;
+          _referrer = referredBy;
           _matches = List<Map<String, dynamic>>.from(matches);
           _transactions = List<Map<String, dynamic>>.from(transactions);
+          _referredUsers = List<Map<String, dynamic>>.from(referrals);
           _isLoading = false;
         });
       }
@@ -144,6 +162,56 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
       },
     );
   }
+  void _showSendNotification() {
+    final titleCtrl = TextEditingController();
+    final bodyCtrl = TextEditingController();
+    bool isSending = false;
+
+    StitchDialog.show(
+      context: context,
+      title: 'Send Notification',
+      content: StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Send a targeted notification to @${_user!['username']}', 
+                style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+              const SizedBox(height: 16),
+              StitchInput(label: 'Title', controller: titleCtrl, hintText: 'e.g. Account Update'),
+              const SizedBox(height: 12),
+              StitchInput(label: 'Message', controller: bodyCtrl, hintText: 'e.g. Your balance has been adjusted...', maxLines: 3),
+            ],
+          );
+        },
+      ),
+      primaryButtonText: 'Send now',
+      onPrimaryPressed: () async {
+        final title = titleCtrl.text.trim();
+        final body = bodyCtrl.text.trim();
+        if (title.isEmpty || body.isEmpty) return;
+
+        try {
+          final payload = {
+            'user_id': widget.userId,
+            'title': title,
+            'body': body,
+            'type': 'admin_push',
+            'is_broadcast': false,
+          };
+
+          await _supabase.functions.invoke('send_notification', body: payload);
+          
+          if (mounted) {
+            context.pop();
+            StitchSnackbar.showSuccess(context, 'Notification sent to @${_user!['username']}');
+          }
+        } catch (e) {
+          if (mounted) StitchSnackbar.showError(context, 'Failed to send notification');
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +234,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
         title: Text(_user!['username'] ?? 'User Details'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => StitchSnackbar.showInfo(context, 'Notification feature coming soon'),
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: _showSendNotification,
           ),
         ],
       ),
@@ -192,6 +260,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                 tabs: const [
                   Tab(text: 'Tournaments'),
                   Tab(text: 'Transactions'),
+                  Tab(text: 'Referrals'),
                 ],
               ),
             ),
@@ -202,6 +271,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                 children: [
                   _TournamentHistoryList(matches: _matches),
                   _TransactionHistoryList(transactions: _transactions),
+                  _ReferralHistoryList(referrals: _referredUsers, referrer: _referrer),
                 ],
               ),
             ),
@@ -454,6 +524,80 @@ class _TransactionHistoryList extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ReferralHistoryList extends StatelessWidget {
+  final List<Map<String, dynamic>> referrals;
+  final Map<String, dynamic>? referrer;
+  const _ReferralHistoryList({required this.referrals, this.referrer});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (referrer != null) ...[
+            const Text('REFERRED BY', style: TextStyle(fontSize: 10, color: StitchTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => context.push('/user_detail/${referrer!['id']}'),
+              child: StitchCard(
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_pin, color: StitchTheme.primary),
+                    const SizedBox(width: 12),
+                    Text(referrer!['username'], style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.primary)),
+                    const Spacer(),
+                    const Icon(Icons.chevron_right, color: StitchTheme.textMuted),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          
+          Text('REFERRALS (${referrals.length})', style: const TextStyle(fontSize: 10, color: StitchTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const SizedBox(height: 12),
+          if (referrals.isEmpty)
+            const Center(child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Text('No referrals yet', style: TextStyle(color: StitchTheme.textMuted)),
+            ))
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: referrals.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final ref = referrals[index];
+                return GestureDetector(
+                  onTap: () => context.push('/user_detail/${ref['id']}'),
+                  child: StitchCard(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, size: 16, color: StitchTheme.textMuted),
+                        const SizedBox(width: 12),
+                        Text(ref['username'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        Text(
+                          DateFormat('dd MMM yyyy').format(DateTime.parse(ref['created_at'])),
+                          style: const TextStyle(fontSize: 11, color: StitchTheme.textMuted),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chevron_right, size: 16, color: StitchTheme.textMuted),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

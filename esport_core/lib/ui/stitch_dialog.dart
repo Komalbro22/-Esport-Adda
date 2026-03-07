@@ -11,6 +11,7 @@ class StitchDialog {
     required Widget content,
     String? primaryButtonText,
     VoidCallback? onPrimaryPressed,
+    Color? primaryButtonColor,
     String? secondaryButtonText,
     VoidCallback? onSecondaryPressed,
   }) {
@@ -83,6 +84,7 @@ class StitchDialog {
                               child: StitchButton(
                                 text: primaryButtonText,
                                 onPressed: onPrimaryPressed,
+                                customColor: primaryButtonColor,
                               ),
                             ),
                         ],

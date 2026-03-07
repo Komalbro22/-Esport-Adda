@@ -136,10 +136,11 @@ class _ReferralScreenState extends State<ReferralScreen> {
                   const SizedBox(height: 48),
                   
                   StitchButton(
-                    text: 'Share with Friends',
+                    text: 'Copy Invite Message',
                     onPressed: () {
-                      // Integration with share_plus would go here
-                      StitchSnackbar.showInfo(context, 'Sharing feature coming soon!');
+                      final message = 'Join Esport Adda to play tournaments and earn real money! Use my referral code $_referralCode to get an instant signup bonus. Download now!';
+                      Clipboard.setData(ClipboardData(text: message));
+                      StitchSnackbar.showSuccess(context, 'Invite message copied to clipboard!');
                     },
                   ),
                 ],

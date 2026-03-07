@@ -66,10 +66,12 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
-      final data = await _supabase.from('profiles').select('wallet_balance').eq('id', user.id).single();
+      final data = await _supabase.from('user_wallets').select('deposit_wallet, winning_wallet').eq('user_id', user.id).single();
       if (mounted) {
         setState(() {
-          _walletBalance = (data['wallet_balance'] as num).toDouble();
+          final deposit = (data['deposit_wallet'] as num?)?.toDouble() ?? 0.0;
+          final winning = (data['winning_wallet'] as num?)?.toDouble() ?? 0.0;
+          _walletBalance = deposit + winning;
         });
       }
     } catch (e) {
@@ -243,7 +245,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                           children: [
                             Text('Prize Pool', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                             const SizedBox(height: 4),
-                            const Text('₹5000', style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w900, fontSize: 16)),
+                            Text('₹${_tournament!['total_prize_pool'] ?? 0}', style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w900, fontSize: 16)),
                           ],
                         ),
                       ],

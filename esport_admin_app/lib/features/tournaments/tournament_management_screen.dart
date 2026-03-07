@@ -42,27 +42,52 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
   }
 
-  void _showAddDialog() async {
-    // Fetch active games for dropdown
-    final gamesRes = await _supabase.from('games').select('id, name').eq('is_active', true);
+  void _showAddEditDialog([Map<String, dynamic>? tournament]) async {
+    final isEditing = tournament != null;
+    // Fetch games for dropdown
+    final gamesRes = await _supabase.from('games').select('id, name');
     final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(gamesRes);
+    final activeGames = games.where((g) => g['is_active'] == true).toList();
     
-    if (games.isEmpty) {
+    if (activeGames.isEmpty && !isEditing) {
       if (mounted) StitchSnackbar.showError(context, 'Please add a game first before creating a tournament.');
       return;
     }
 
-    String selectedGameId = games.first['id'];
-    String selectedType = 'solo';
-    final titleCtrl = TextEditingController();
-    final entryFeeCtrl = TextEditingController(text: '0');
-    final perKillCtrl = TextEditingController(text: '0');
-    final slotsCtrl = TextEditingController(text: '100');
-    final startCtrl = TextEditingController();
-    final bannerCtrl = TextEditingController();
-    final prizeDescCtrl = TextEditingController();
+    String selectedGameId = isEditing && games.any((g) => g['id'] == tournament['game_id']) 
+        ? tournament['game_id'] 
+        : activeGames.first['id'];
+
+    String selectedType = isEditing ? tournament['tournament_type'] : 'solo';
+    final titleCtrl = TextEditingController(text: isEditing ? tournament['title'] : '');
+    final entryFeeCtrl = TextEditingController(text: isEditing ? tournament['entry_fee'].toString() : '0');
+    final perKillCtrl = TextEditingController(text: isEditing ? tournament['per_kill_reward'].toString() : '0');
+    final slotsCtrl = TextEditingController(text: isEditing ? tournament['total_slots'].toString() : '100');
+    final totalPrizeCtrl = TextEditingController(text: isEditing ? (tournament['total_prize_pool']?.toString() ?? '0') : '0');
+    
+    DateTime? selectedDate;
+    TimeOfDay? selectedTime;
+    
+    if (isEditing && tournament['start_time'] != null) {
+      final dt = DateTime.parse(tournament['start_time']).toLocal();
+      selectedDate = dt;
+      selectedTime = TimeOfDay.fromDateTime(dt);
+    }
+
+    final startCtrl = TextEditingController(text: selectedDate != null ? DateFormat('MMM dd, yyyy • HH:mm').format(selectedDate!) : '');
+    final bannerCtrl = TextEditingController(text: isEditing ? (tournament['banner_url'] ?? '') : '');
+    final prizeDescCtrl = TextEditingController(text: isEditing ? (tournament['prize_description'] ?? '') : '');
+
+    String initialPrizeConfig = '';
+    if (isEditing && tournament['rank_prizes'] != null) {
+       final Map rp = tournament['rank_prizes'] as Map;
+       // Format as `1=100, 2=50`
+       initialPrizeConfig = rp.entries.map((e) => '${e.key}=${e.value}').join(', ');
+    }
+    final prizeConfigCtrl = TextEditingController(text: initialPrizeConfig);
+    
     bool isUploading = false;
-    bool isFeatured = false;
+    bool isFeatured = isEditing ? (tournament['is_featured'] ?? false) : false;
 
     Future<void> pickAndUpload(StateSetter setDialogState) async {
        final picker = ImagePicker();
@@ -99,15 +124,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
          StitchSnackbar.showError(context, 'Banner upload failed');
        }
     }
-    
-    DateTime? selectedDate;
-    TimeOfDay? selectedTime;
-
     if (!mounted) return;
 
     StitchDialog.show(
       context: context,
-      title: 'NEW TOURNAMENT',
+      title: isEditing ? 'EDIT TOURNAMENT' : 'NEW TOURNAMENT',
       content: StatefulBuilder(
         builder: (context, setDialogState) {
           return ConstrainedBox(
@@ -185,6 +206,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                       Expanded(child: StitchInput(label: 'Per Kill (₹)', controller: perKillCtrl, keyboardType: TextInputType.number)),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Total Prize Pool (₹)', controller: totalPrizeCtrl, keyboardType: TextInputType.number),
                   
                   const SizedBox(height: 20),
                   const Text('SCHEDULE', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
@@ -258,7 +281,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Prize Details', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter prize distribution or rules...'),
+                  StitchInput(label: 'Tournament Description and Rules', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter description or rules...'),
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Prize Configuration (Format: 1=100, 2=50)', controller: prizeConfigCtrl, maxLines: 2, hintText: '1=500, 2=200, 3=100'),
                   const SizedBox(height: 20),
                   SwitchListTile(
                     title: const Text('FEATURED TOURNAMENT', style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
@@ -274,7 +299,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           );
         }
       ),
-      primaryButtonText: 'CREATE TOURNAMENT',
+      primaryButtonText: isEditing ? 'SAVE CHANGES' : 'CREATE TOURNAMENT',
       onPrimaryPressed: () async {
         if (titleCtrl.text.trim().isEmpty || selectedDate == null || selectedTime == null) {
           StitchSnackbar.showError(context, 'Missing required fields');
@@ -282,29 +307,52 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         }
 
         final dt = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, selectedTime!.hour, selectedTime!.minute).toUtc();
-        
+        Map<String, dynamic>? rankPrizes;
+        if (prizeConfigCtrl.text.trim().isNotEmpty) {
+          rankPrizes = {};
+          final pairs = prizeConfigCtrl.text.split(',');
+          for (var p in pairs) {
+            final parts = p.split('=');
+            if (parts.length == 2) {
+              final rank = parts[0].trim();
+              final amount = double.tryParse(parts[1].trim());
+              if (amount != null) {
+                rankPrizes[rank] = amount;
+              }
+            }
+          }
+        }
+
         try {
-          await _supabase.from('tournaments').insert({
+          final payload = {
             'game_id': selectedGameId,
             'title': titleCtrl.text.trim(),
             'tournament_type': selectedType,
             'entry_fee': double.tryParse(entryFeeCtrl.text.trim()) ?? 0,
             'per_kill_reward': double.tryParse(perKillCtrl.text.trim()) ?? 0,
             'total_slots': int.tryParse(slotsCtrl.text.trim()) ?? 100,
+            'total_prize_pool': double.tryParse(totalPrizeCtrl.text.trim()) ?? 0,
             'start_time': dt.toIso8601String(),
             'banner_url': bannerCtrl.text.trim().isEmpty ? null : bannerCtrl.text.trim(),
             'prize_description': prizeDescCtrl.text.trim().isEmpty ? null : prizeDescCtrl.text.trim(),
+            'rank_prizes': rankPrizes,
             'is_featured': isFeatured,
-            'created_by': _supabase.auth.currentUser!.id,
-          });
+          };
+
+          if (isEditing) {
+            await _supabase.from('tournaments').update(payload).eq('id', tournament['id']);
+          } else {
+            payload['created_by'] = _supabase.auth.currentUser!.id;
+            await _supabase.from('tournaments').insert(payload);
+          }
           
           if (mounted) {
             context.pop();
-            StitchSnackbar.showSuccess(context, 'Tournament created successfully');
+            StitchSnackbar.showSuccess(context, isEditing ? 'Tournament updated successfully' : 'Tournament created successfully');
             _fetchTournaments();
           }
         } catch (e) {
-          if (mounted) StitchSnackbar.showError(context, 'Error creating tournament');
+          if (mounted) StitchSnackbar.showError(context, isEditing ? 'Error updating tournament' : 'Error creating tournament');
         }
       },
     );
@@ -419,6 +467,16 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                                     '${t['joined_slots']}/${t['total_slots']} SLOTS', 
                                     style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)
                                   ),
+                                  if (status == 'upcoming' || status == 'ongoing')
+                                    TextButton(
+                                      onPressed: () => _showAddEditDialog(t),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.fromLTRB(16, 8, 0, 0),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: const Text('EDIT', style: TextStyle(color: StitchTheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    )
                                 ],
                               )
                             ],
@@ -434,7 +492,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         }
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddDialog,
+        onPressed: () => _showAddEditDialog(),
         backgroundColor: StitchTheme.primary,
         icon: const Icon(Icons.add_rounded, color: Colors.black),
         label: const Text('NEW TOURNAMENT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 12)),

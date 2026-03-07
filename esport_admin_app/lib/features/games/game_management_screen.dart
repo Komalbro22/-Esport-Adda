@@ -162,6 +162,30 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
     );
   }
 
+  void _confirmDelete(Map<String, dynamic> game) {
+    StitchDialog.show(
+      context: context,
+      title: 'Delete Game',
+      content: Text('Are you sure you want to delete ${game['name']}? This may fail if tournaments are actively using it.', style: const TextStyle(color: StitchTheme.textMuted)),
+      primaryButtonText: 'Delete',
+      primaryButtonColor: StitchTheme.error,
+      onPrimaryPressed: () async {
+        try {
+          await _supabase.from('games').delete().eq('id', game['id']);
+          if (mounted) {
+            context.pop();
+            StitchSnackbar.showSuccess(context, 'Game deleted');
+            _fetchGames();
+          }
+        } catch (e) {
+          if (mounted) StitchSnackbar.showError(context, 'Game cannot be deleted. Try setting it to inactive.');
+        }
+      },
+      secondaryButtonText: 'Cancel',
+      onSecondaryPressed: () => context.pop(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -187,9 +211,18 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
                     ),
                     title: Text(game['name'], style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
                     subtitle: Text(game['is_active'] ? 'Active' : 'Inactive', style: TextStyle(color: game['is_active'] ? StitchTheme.success : StitchTheme.error)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit, color: StitchTheme.primary),
-                      onPressed: () => _showAddEditDialog(game),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: StitchTheme.primary),
+                          onPressed: () => _showAddEditDialog(game),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: StitchTheme.error),
+                          onPressed: () => _confirmDelete(game),
+                        ),
+                      ],
                     ),
                   ),
                 );

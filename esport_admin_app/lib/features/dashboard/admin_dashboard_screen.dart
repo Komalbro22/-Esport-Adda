@@ -164,11 +164,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           crossAxisCount: constraints.maxWidth > 800 ? 5 : (constraints.maxWidth > 500 ? 3 : 2),
                           childAspectRatio: 1.1,
                           children: [
-                            _buildModernStat('USERS', _totalUsers.toString(), Icons.people_rounded, StitchTheme.primary),
-                            _buildModernStat('ACTIVE', _activeTournaments.toString(), Icons.emoji_events_rounded, StitchTheme.warning),
-                            _buildModernStat('DEPOSITS', _pendingDeposits.toString(), Icons.add_circle_outline_rounded, StitchTheme.success, highlight: _pendingDeposits > 0),
-                            _buildModernStat('WITHDRAWS', _pendingWithdraws.toString(), Icons.remove_circle_outline_rounded, StitchTheme.error, highlight: _pendingWithdraws > 0),
-                            _buildModernStat('TICKETS', _openTickets.toString(), Icons.message_rounded, StitchTheme.accent, highlight: _openTickets > 0),
+                            _buildModernStat('USERS', _totalUsers.toString(), Icons.people_rounded, StitchTheme.primary, onTap: () => context.push('/users')),
+                            _buildModernStat('ACTIVE', _activeTournaments.toString(), Icons.emoji_events_rounded, StitchTheme.warning, onTap: () => context.push('/tournaments')),
+                            _buildModernStat('DEPOSITS', _pendingDeposits.toString(), Icons.add_circle_outline_rounded, StitchTheme.success, highlight: _pendingDeposits > 0, onTap: () => context.push('/finances?tab=0')),
+                            _buildModernStat('WITHDRAWS', _pendingWithdraws.toString(), Icons.remove_circle_outline_rounded, StitchTheme.error, highlight: _pendingWithdraws > 0, onTap: () => context.push('/finances?tab=1')),
+                            _buildModernStat('TICKETS', _openTickets.toString(), Icons.message_rounded, StitchTheme.accent, highlight: _openTickets > 0, onTap: () => context.push('/support')),
                           ],
                         ),
                         
@@ -196,7 +196,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _buildNavCard('GAMES', Icons.sports_esports_rounded, '/games'),
                             _buildNavCard('TOURNAMENTS', Icons.military_tech_rounded, '/tournaments'),
                             _buildNavCard('PLAYERS', Icons.group_rounded, '/users'),
-                            _buildNavCard('FINANCES', Icons.account_balance_rounded, '/deposits'),
+                            _buildNavCard('FINANCES', Icons.account_balance_rounded, '/finances'),
                             _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
                             _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),
                           ],
@@ -232,31 +232,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildModernStat(String label, String value, IconData icon, Color color, {bool highlight = false}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: StitchTheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: highlight ? color.withOpacity(0.5) : Colors.white.withOpacity(0.05)),
-        boxShadow: [
-          if (highlight) BoxShadow(color: color.withOpacity(0.1), blurRadius: 10, spreadRadius: 1),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: color.withOpacity(0.8), size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, fontFamily: 'monospace'),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: StitchTheme.textMuted.withOpacity(0.6), letterSpacing: 1),
-          ),
-        ],
+  Widget _buildModernStat(String label, String value, IconData icon, Color color, {bool highlight = false, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: StitchTheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: highlight ? color.withOpacity(0.5) : Colors.white.withOpacity(0.05)),
+          boxShadow: [
+            if (highlight) BoxShadow(color: color.withOpacity(0.1), blurRadius: 10, spreadRadius: 1),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color.withOpacity(0.8), size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, fontFamily: 'monospace'),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: StitchTheme.textMuted.withOpacity(0.6), letterSpacing: 1),
+            ),
+          ],
+        ),
       ),
     );
   }

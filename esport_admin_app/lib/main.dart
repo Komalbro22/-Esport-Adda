@@ -9,6 +9,7 @@ import 'features/tournaments/tournament_management_screen.dart';
 import 'features/tournaments/tournament_admin_detail_screen.dart';
 import 'features/wallet/deposit_management_screen.dart';
 import 'features/wallet/withdraw_management_screen.dart';
+import 'features/wallet/finances_screen.dart';
 import 'features/assets/asset_gallery_screen.dart';
 import 'features/users/user_management_screen.dart';
 import 'features/users/user_detail_screen.dart';
@@ -58,6 +59,13 @@ final _router = GoRouter(
     GoRoute(
       path: '/withdraws',
       builder: (context, state) => const WithdrawManagementScreen(),
+    ),
+    GoRoute(
+      path: '/finances',
+      builder: (context, state) {
+        final tab = int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+        return FinancesScreen(initialTab: tab);
+      },
     ),
     GoRoute(
       path: '/assets',

@@ -7,7 +7,8 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 
 class WithdrawManagementScreen extends StatefulWidget {
-  const WithdrawManagementScreen({Key? key}) : super(key: key);
+  final bool isTab;
+  const WithdrawManagementScreen({Key? key, this.isTab = false}) : super(key: key);
 
   @override
   State<WithdrawManagementScreen> createState() => _WithdrawManagementScreenState();
@@ -69,7 +70,7 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: widget.isTab ? null : AppBar(
         title: const Text('Withdraw Requests'),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
       ),

@@ -108,12 +108,18 @@ serve(async (req) => {
   let newWinning = wallet.winning_wallet
   let remainingFee = tournament.entry_fee
 
+  let depositDeducted = 0
+  let winningDeducted = 0
+
   if (newDeposit >= remainingFee) {
+    depositDeducted = remainingFee
     newDeposit -= remainingFee
     remainingFee = 0
   } else {
+    depositDeducted = newDeposit
     remainingFee -= newDeposit
     newDeposit = 0
+    winningDeducted = remainingFee
     newWinning -= remainingFee
   }
 
@@ -128,16 +134,32 @@ serve(async (req) => {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
 
-  // 5. Log transaction
-  await supabaseAdmin.from('wallet_transactions').insert({
-    user_id: user.id,
-    amount: tournament.entry_fee,
-    type: 'tournament_entry',
-    wallet_type: 'deposit',
-    status: 'completed',
-    reference_id: tournament_id
-  })
+  // 5. Log transaction(s) accurately splitting deposit and winning deductions
+  const txsToInsert = []
+  if (depositDeducted > 0) {
+    txsToInsert.push({
+      user_id: user.id,
+      amount: depositDeducted,
+      type: 'tournament_entry',
+      wallet_type: 'deposit',
+      status: 'completed',
+      reference_id: tournament_id
+    })
+  }
+  if (winningDeducted > 0) {
+    txsToInsert.push({
+      user_id: user.id,
+      amount: winningDeducted,
+      type: 'tournament_entry',
+      wallet_type: 'winning',
+      status: 'completed',
+      reference_id: tournament_id
+    })
+  }
 
+  if (txsToInsert.length > 0) {
+    await supabaseAdmin.from('wallet_transactions').insert(txsToInsert)
+  }
   // 6. Join tournament
   const { error: joinError } = await supabaseAdmin.from('joined_teams').insert({
     tournament_id: tournament_id,

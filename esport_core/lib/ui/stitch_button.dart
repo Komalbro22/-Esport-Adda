@@ -9,6 +9,7 @@ class StitchButton extends StatefulWidget {
   final bool isSecondary;
   final Color? backgroundColor;
   final Color? textColor;
+  final Color? customColor;
 
   const StitchButton({
     Key? key,
@@ -18,6 +19,7 @@ class StitchButton extends StatefulWidget {
     this.isSecondary = false,
     this.backgroundColor,
     this.textColor,
+    this.customColor,
   }) : super(key: key);
 
   @override
@@ -37,16 +39,16 @@ class _StitchButtonState extends State<StitchButton> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
-            gradient: (widget.isSecondary || widget.backgroundColor != null) ? null : StitchTheme.primaryGradient,
-            color: widget.backgroundColor ?? (widget.isSecondary ? Colors.transparent : null),
-            border: widget.isSecondary ? Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5) : null,
+            gradient: (widget.isSecondary || widget.backgroundColor != null || widget.customColor != null) ? null : StitchTheme.primaryGradient,
+            color: widget.customColor ?? widget.backgroundColor ?? (widget.isSecondary ? Colors.transparent : null),
+            border: widget.isSecondary ? Border.all(color: widget.customColor ?? StitchTheme.primary.withOpacity(0.5), width: 1.5) : null,
             borderRadius: BorderRadius.circular(12),
             boxShadow: _isHovered && !widget.isLoading && widget.onPressed != null
                 ? [
                     BoxShadow(
                       color: widget.isSecondary 
-                        ? StitchTheme.primary.withOpacity(0.2) 
-                        : StitchTheme.primary.withOpacity(0.4),
+                        ? (widget.customColor ?? StitchTheme.primary).withOpacity(0.2) 
+                        : (widget.customColor ?? StitchTheme.primary).withOpacity(0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     )
@@ -60,7 +62,7 @@ class _StitchButtonState extends State<StitchButton> {
                     height: 24,
                     width: 24,
                     child: CircularProgressIndicator(
-                      color: widget.isSecondary ? StitchTheme.primary : StitchTheme.textMain,
+                      color: widget.isSecondary ? (widget.customColor ?? StitchTheme.primary) : StitchTheme.textMain,
                       strokeWidth: 2,
                     ),
                   )
