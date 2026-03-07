@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.sports_esports, size: 80, color: StitchTheme.primary),
+              Image.asset('assets/logo.png', height: 120),
               const SizedBox(height: 24),
               const Text(
                 'Welcome Back',

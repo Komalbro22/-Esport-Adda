@@ -57,7 +57,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.admin_panel_settings, size: 80, color: StitchTheme.primary),
+              Image.asset('assets/logo.png', height: 120),
               const SizedBox(height: 16),
               const Text('Admin Portal', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
               const SizedBox(height: 32),
