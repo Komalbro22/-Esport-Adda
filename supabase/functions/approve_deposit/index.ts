@@ -7,63 +7,49 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
         const authHeader = req.headers.get('Authorization')
-        console.log('Authorization Header present:', !!authHeader)
-
         if (!authHeader) {
             console.error('Missing Authorization header')
-            return new Response(JSON.stringify({ error: 'Unauthorized: Missing token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Missing token' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
         }
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-        console.log('Project URL:', supabaseUrl);
-        console.log('Anon Key length:', supabaseAnonKey.length);
-        console.log('Service Key length:', supabaseServiceKey.length);
-
-        if (!supabaseServiceKey) {
-            console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
-        }
-
-        // Create admin client
+        // Create admin client for verification and DB operations
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Verify user JWT explicitly
-        const token = authHeader.replace('Bearer ', '').trim();
+        // Extract token securely
+        const token = authHeader.replace(/^[Bb]earer /, '').trim();
 
-        // Debug: Check token project ref (no signature verify)
-        try {
-            const parts = token.split('.');
-            if (parts.length === 3) {
-                const payload = JSON.parse(atob(parts[1]));
-                console.log('Token Payload Project Ref:', payload.ref, 'Role:', payload.role);
-            }
-        } catch (e) {
-            console.error('Failed to parse token payload:', e.message);
+        if (!token) {
+            return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Empty token' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
         }
 
-        // Use the anon client to verify the token - this is often more reliable than the admin client for user tokens
-        const authClient = createClient(supabaseUrl, supabaseAnonKey)
-        const { data: { user }, error: verifyError } = await authClient.auth.getUser(token)
+        // Use supabaseAdmin to verify the token explicitly - this is the most robust way
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
-        if (verifyError || !user) {
+        if (authError || !user) {
             // Check if it's the Service Role Key being used as a token (internal call)
             if (token === supabaseServiceKey) {
                 console.log('Internal system call with Service Key');
-                // We'll proceed without a user object, but we need to handle this in role check
             } else {
-                console.error('JWT Verification Failed:', verifyError?.message || 'No user returned', verifyError);
+                console.error('JWT Verification Failed:', authError?.message || 'No user', authError);
                 return new Response(JSON.stringify({
                     error: 'Unauthorized',
-                    message: verifyError?.message || 'Invalid or expired token',
-                    details: verifyError
+                    message: authError?.message || 'Invalid JWT - Please log in again',
                 }), {
                     status: 401,
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -71,21 +57,34 @@ serve(async (req) => {
             }
         }
 
-        console.log('User authenticated:', user.id)
+        if (user) console.log('User authenticated:', user.id)
 
-        // Check admin role
-        const { data: adminCheck, error: roleError } = await supabaseAdmin
-            .from('users')
-            .select('role, name')
-            .eq('id', user.id)
-            .single()
+        // Check if user is admin
+        let isAdmin = false;
+        let adminCheck: any = null;
 
-        if (roleError || !adminCheck || !['admin', 'super_admin'].includes(adminCheck.role)) {
-            console.error('Role Check Error:', roleError?.message || 'Not an admin', 'Role:', adminCheck?.role)
+        if (token === supabaseServiceKey) {
+            isAdmin = true;
+        } else if (user) {
+            const { data, error: roleError } = await supabaseAdmin
+                .from('users')
+                .select('role, name')
+                .eq('id', user.id)
+                .single()
+
+            adminCheck = data;
+            if (!roleError && data && ['admin', 'super_admin'].includes(data.role)) {
+                isAdmin = true;
+            } else {
+                console.error('Admin Check Failed for user:', user.id, 'Role:', data?.role);
+            }
+        }
+
+        if (!isAdmin) {
+            console.error('Forbidden: User is not an admin.');
             return new Response(JSON.stringify({
                 error: 'Forbidden',
-                message: 'Admin access required',
-                role: adminCheck?.role
+                message: 'Admin access required'
             }), {
                 status: 403,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -94,19 +93,31 @@ serve(async (req) => {
 
         const { request_id, approved = true } = await req.json()
 
+        // Fetch request details
         const { data: request, error: reqError } = await supabaseAdmin
             .from('deposit_requests')
             .select('*')
             .eq('id', request_id)
             .single()
 
-        if (reqError || !request) return new Response(JSON.stringify({ error: 'Request not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        if (request.status !== 'pending') return new Response(JSON.stringify({ error: 'Request already processed' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        if (reqError || !request) {
+            return new Response(JSON.stringify({ error: 'Request not found' }), {
+                status: 404,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        if (request.status !== 'pending') {
+            return new Response(JSON.stringify({ error: 'Request already processed' }), {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
 
         const newStatus = approved ? 'approved' : 'rejected'
 
         if (approved) {
-            // Get current wallet securely
+            // Get current wallet balance securely
             const { data: wallet } = await supabaseAdmin
                 .from('user_wallets')
                 .select('deposit_wallet')
@@ -115,32 +126,32 @@ serve(async (req) => {
 
             const currentDeposit = wallet?.deposit_wallet || 0
 
-            // Add to deposit wallet directly
+            // Update user wallet
             await supabaseAdmin.from('user_wallets')
                 .update({ deposit_wallet: currentDeposit + request.amount })
                 .eq('user_id', request.user_id)
         }
 
-        // Update request
+        // Update request status
         await supabaseAdmin.from('deposit_requests').update({ status: newStatus }).eq('id', request_id)
 
-        // Update the pending wallet transaction
+        // Update corresponding wallet transaction
         const txStatus = approved ? 'completed' : 'rejected'
         await supabaseAdmin.from('wallet_transactions')
             .update({ status: txStatus })
             .eq('reference_id', request_id)
 
-        // Log the action
+        // Log admin activity
         await supabaseAdmin.from('admin_activity_logs').insert({
-            admin_id: user.id,
-            admin_name: adminCheck.name || user.email,
+            admin_id: user?.id || 'system',
+            admin_name: (user ? (adminCheck?.name || user.email) : 'System'),
             action: approved ? 'approve_deposit' : 'reject_deposit',
             target_type: 'deposit_request',
             target_id: request_id,
             details: { amount: request.amount, user_id: request.user_id }
         })
 
-        // Notify user via push notification Edge Function
+        // Notify user via notification function
         try {
             await supabaseAdmin.functions.invoke('send_notification', {
                 body: {
@@ -155,8 +166,14 @@ serve(async (req) => {
             console.error('Notification failed:', e.message)
         }
 
-        return new Response(JSON.stringify({ success: true, status: newStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        return new Response(JSON.stringify({ success: true, status: newStatus, deploy_v: 'v2.1' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        console.error('Unexpected Error:', e.message)
+        return new Response(JSON.stringify({ error: e.message }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
     }
 })

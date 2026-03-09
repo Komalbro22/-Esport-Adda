@@ -22,18 +22,22 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
-
-    if (!supabaseServiceKey) {
-      console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
-    }
 
     // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Verify user JWT explicitly
-    const token = authHeader.replace('Bearer ', '');
+    // Verify user JWT explicitly using the admin client for better reliability
+    const token = authHeader.replace(/^[Bb]earer /, '').trim();
+
+    if (!token) {
+      return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Token is empty' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Use supabaseAdmin (Service Role) to verify the token - this is the most robust way in Edge Functions
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {

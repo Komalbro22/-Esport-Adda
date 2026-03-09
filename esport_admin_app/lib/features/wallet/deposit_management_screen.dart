@@ -47,6 +47,13 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
     setState(() => _isLoading = true);
     try {
       final isApproved = action == 'approve';
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        throw Exception('No active admin session. Please log in again.');
+      }
+      
+      debugPrint('Calling approve_deposit with token length: ${session.accessToken.length}');
+
       final response = await _supabase.functions.invoke(
         'approve_deposit',
         body: {
@@ -54,7 +61,7 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
           'approved': isApproved
         },
         headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'Authorization': 'Bearer ${session.accessToken}',
           'apikey': SupabaseConfig.anonKey,
         },
       );

@@ -33,10 +33,20 @@ serve(async (req) => {
         // Create admin client
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Verify user JWT explicitly
-        const token = authHeader.replace('Bearer ', '');
+        // Verify user JWT explicitly using the admin client for better reliability
+        const token = authHeader.replace(/^[Bb]earer /, '').trim();
+
+        if (!token) {
+            return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Token is empty' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // Use supabaseAdmin (Service Role) to verify the token
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
+        let adminCheck: any = null;
         if (authError || !user) {
             // Check if it's an internal call using SERVICE_ROLE_KEY (e.g. from other edge functions)
             if (token === supabaseServiceKey) {
@@ -45,7 +55,7 @@ serve(async (req) => {
                 console.error('Auth Error:', authError?.message || 'User not found');
                 return new Response(JSON.stringify({
                     error: 'User not authenticated',
-                    details: authError?.message || 'User not found.'
+                    message: authError?.message || 'User not found.'
                 }), {
                     status: 401,
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -55,9 +65,11 @@ serve(async (req) => {
             // Verify role
             const { data: profile } = await supabaseAdmin
                 .from('users')
-                .select('role, is_blocked')
+                .select('role, is_blocked, name')
                 .eq('id', user.id)
                 .single()
+
+            adminCheck = profile;
 
             if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin') || profile.is_blocked) {
                 console.error('Forbidden: User is not an admin', profile?.role);
@@ -87,7 +99,7 @@ serve(async (req) => {
         } else if (tournament_id) {
             // Fetch users who joined this tournament
             const { data: participants, error } = await supabaseAdmin
-                .from('tournament_participants')
+                .from('joined_teams')
                 .select('user_id, users(fcm_token)')
                 .eq('tournament_id', tournament_id)
 

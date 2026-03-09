@@ -20,20 +20,42 @@ serve(async (req) => {
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
         const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-        const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-        // Create client with user's JWT
-        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-            global: { headers: { Authorization: authHeader } }
-        })
+        if (!supabaseServiceKey) {
+            console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
+        }
 
         // Create admin client
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Authenticate user
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+        // Verify user JWT explicitly using the admin client for better reliability
+        const token = authHeader.replace(/^[Bb]earer /, '').trim();
+
+        if (!token) {
+            return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Token is empty' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // Use supabaseAdmin (Service Role) to verify the token
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+
         if (authError || !user) {
-            return new Response(JSON.stringify({ error: 'User not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+            // Check if it's the Service Role Key being used as a token (for system/internal calls)
+            if (token === supabaseServiceKey) {
+                console.log('Internal system call with Service Key');
+            } else {
+                console.error('Auth Error:', authError?.message || 'User not found');
+                return new Response(JSON.stringify({
+                    error: 'Unauthorized',
+                    message: authError?.message || 'User not authenticated'
+                }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
         }
 
         const { tournament_id } = await req.json()
@@ -139,8 +161,8 @@ serve(async (req) => {
 
         // Log action
         await supabaseAdmin.from('admin_activity_logs').insert({
-            admin_id: user.id,
-            admin_name: adminCheck.name || user.email,
+            admin_id: user?.id || 'system',
+            admin_name: (user ? (adminCheck?.name || user.email) : 'System'),
             action: 'cancel_tournament',
             target_type: 'tournament',
             target_id: tournament_id,

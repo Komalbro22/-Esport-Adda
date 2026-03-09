@@ -1,0 +1,15 @@
+{
+    "name": "esport-adda-backend",
+    "version": "1.0.0",
+    "description": "Supabase management scripts for Esport Adda",
+    "scripts": {
+        "deploy:functions": "npx supabase functions deploy distribute_prizes approve_deposit send_notification cancel_tournament join_tournament --no-verify-jwt",
+        "deploy:all": "npx supabase functions deploy --no-verify-jwt",
+        "supabase:login": "npx supabase login",
+        "supabase:link": "npx supabase link",
+        "db:push": "npx supabase db push"
+    },
+    "devDependencies": {
+        "supabase": "latest"
+    }
+}

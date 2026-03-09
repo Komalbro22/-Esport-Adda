@@ -62,6 +62,12 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
       }).eq('id', widget.tournamentId);
       
       // Notify all joined users via Edge Func
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Auth session missing!')));
+        return;
+      }
+
       try {
         await _supabase.functions.invoke(
           'send_notification',
@@ -73,7 +79,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
             'is_broadcast': false
           },
           headers: {
-            'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+            'Authorization': 'Bearer ${session.accessToken}',
             'apikey': SupabaseConfig.anonKey,
           },
         );
@@ -97,13 +103,18 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
     setState(() => _isLoading = true);
     try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        throw Exception('No active admin session. Please log in again.');
+      }
+
       if (status == 'completed') {
          // Use Secure Edge Function to distribute prizes and mark complete
          final response = await _supabase.functions.invoke(
             'distribute_prizes',
             body: {'tournament_id': widget.tournamentId},
             headers: {
-              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'Authorization': 'Bearer ${session.accessToken}',
               'apikey': SupabaseConfig.anonKey,
             },
          );
@@ -122,9 +133,9 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                  'is_broadcast': false
                },
                headers: {
-              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
-              'apikey': SupabaseConfig.anonKey,
-            },
+                 'Authorization': 'Bearer ${session.accessToken}',
+                 'apikey': SupabaseConfig.anonKey,
+               },
              );
            } catch (_) {}
          } else {
@@ -145,10 +156,6 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                  'type': 'tournament',
                  'is_broadcast': false
                },
-               headers: {
-              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
-              'apikey': SupabaseConfig.anonKey,
-            },
              );
            } catch (_) {}
          }
@@ -185,10 +192,6 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
             'cancel_tournament',
             body: {
               'tournament_id': widget.tournamentId
-            },
-            headers: {
-              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
-              'apikey': SupabaseConfig.anonKey,
             },
           );
           if (res.status == 200) {
