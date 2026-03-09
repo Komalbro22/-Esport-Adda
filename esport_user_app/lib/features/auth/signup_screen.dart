@@ -60,6 +60,10 @@ class _SignupScreenState extends State<SignupScreen> {
                'referral_code': refCode,
                'new_user_id': response.user!.id
              },
+             headers: {
+               'Authorization': 'Bearer ${response.session?.accessToken ?? ''}',
+               'apikey': SupabaseConfig.anonKey,
+             },
            );
         }
 

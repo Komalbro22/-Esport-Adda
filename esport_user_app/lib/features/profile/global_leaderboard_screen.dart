@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class GlobalLeaderboardScreen extends StatefulWidget {
   final bool isBottomNav;
@@ -179,7 +180,14 @@ class _GlobalLeaderboardScreenState extends State<GlobalLeaderboardScreen> with 
         ),
       ),
       body: _isLoading
-          ? const Center(child: StitchLoading())
+          ? ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: 10,
+              itemBuilder: (_, __) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: StitchShimmer.rectangular(height: 64, borderRadius: BorderRadius.circular(20)),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: _fetchLeaderboard,
               color: StitchTheme.primary,
@@ -316,7 +324,7 @@ class _PodiumSpot extends StatelessWidget {
                 child: CircleAvatar(
                   radius: avatarSize,
                   backgroundColor: StitchTheme.surface,
-                  backgroundImage: player['avatar_url'] != null ? NetworkImage(player['avatar_url']) : null,
+                  backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
                   child: player['avatar_url'] == null ? const Icon(Icons.person, color: StitchTheme.textMuted) : null,
                 ),
               ),
@@ -424,7 +432,7 @@ class _LeaderboardRow extends StatelessWidget {
             ),
             child: CircleAvatar(
               backgroundColor: StitchTheme.surfaceHighlight,
-              backgroundImage: player['avatar_url'] != null ? NetworkImage(player['avatar_url']) : null,
+              backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
               child: player['avatar_url'] == null 
                   ? const Icon(Icons.person, size: 20, color: StitchTheme.textMuted) 
                   : null,
@@ -499,7 +507,7 @@ class _StickyBottomBar extends StatelessWidget {
             decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: StitchTheme.primary, width: 2)),
             child: CircleAvatar(
               backgroundColor: StitchTheme.surfaceHighlight,
-              backgroundImage: player['avatar_url'] != null ? NetworkImage(player['avatar_url']) : null,
+              backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
               child: player['avatar_url'] == null 
                   ? const Icon(Icons.person, size: 24, color: StitchTheme.textMuted) 
                   : null,

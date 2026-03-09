@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class MyMatchesScreen extends StatefulWidget {
   final bool isBottomNav;
@@ -50,7 +51,19 @@ class _MyMatchesScreenState extends State<MyMatchesScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: StitchLoading());
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF13151D),
+        body: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 3,
+          itemBuilder: (_, __) => const Padding(
+            padding: EdgeInsets.only(bottom: 24),
+            child: TournamentShimmer(),
+          ),
+        ),
+      );
+    }
 
     final upcoming = _myTeams.where((t) => t['tournaments'] != null && t['tournaments']['status'] == 'upcoming').toList();
     final ongoing = _myTeams.where((t) => t['tournaments'] != null && t['tournaments']['status'] == 'ongoing').toList();
@@ -191,7 +204,12 @@ class _MatchCard extends StatelessWidget {
                   height: 140,
                   width: double.infinity,
                   child: tournament['banner_url'] != null
-                      ? Image.network(tournament['banner_url'], fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(color: const Color(0xFF2A2D36)))
+                      ? CachedNetworkImage(
+                          imageUrl: tournament['banner_url'],
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const StitchShimmer(),
+                          errorWidget: (context, url, error) => Container(color: const Color(0xFF2A2D36)),
+                        )
                       : Container(color: const Color(0xFF2A2D36)),
                 ),
                 Positioned.fill(

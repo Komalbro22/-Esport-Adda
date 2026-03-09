@@ -12,34 +12,41 @@ serve(async (req) => {
         return new Response('ok', { headers: corsHeaders })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-    const token = authHeader.replace('Bearer ', '')
-
-    // Authenticate user
-    const supabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
-
-    if (authError || !user) {
-        return new Response(JSON.stringify({ error: 'User not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-
-    const { tournament_id } = await req.json()
-    if (!tournament_id) {
-        return new Response(JSON.stringify({ error: 'Missing tournament_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-
-    const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SERVICE_ROLE_KEY') ?? ''
-    )
-
     try {
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+
+        // Create client with user's JWT
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader } }
+        })
+
+        // Create admin client
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+        // Authenticate user
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+        if (authError || !user) {
+            return new Response(JSON.stringify({ error: 'User not authenticated' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        const { tournament_id } = await req.json()
+        if (!tournament_id) {
+            return new Response(JSON.stringify({ error: 'Missing tournament_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
+        // Check admin role
+        const { data: adminCheck } = await supabaseAdmin.from('users').select('role, name').eq('id', user.id).single()
+        if (!['admin', 'super_admin'].includes(adminCheck?.role)) {
+            return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
+
         // 1. Fetch tournament
         const { data: tournament, error: tourneyError } = await supabaseAdmin
             .from('tournaments')
@@ -97,7 +104,7 @@ serve(async (req) => {
                 await supabaseAdmin.from('user_wallets').update({
                     deposit_wallet: newDeposit,
                     winning_wallet: newWinning
-                }).eq('user_id', userId)
+                }).eq('id', wallet.id)
 
                 // Prepare refund logs
                 if (amounts.deposit > 0) {
@@ -129,6 +136,16 @@ serve(async (req) => {
                 await supabaseAdmin.from('wallet_transactions').insert(newTransactions)
             }
         }
+
+        // Log action
+        await supabaseAdmin.from('admin_activity_logs').insert({
+            admin_id: user.id,
+            admin_name: adminCheck.name || user.email,
+            action: 'cancel_tournament',
+            target_type: 'tournament',
+            target_id: tournament_id,
+            details: { title: tournament.title }
+        })
 
         return new Response(JSON.stringify({ success: true }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

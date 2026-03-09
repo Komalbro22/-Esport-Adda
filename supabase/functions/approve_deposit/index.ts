@@ -7,34 +7,92 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
-        const { request_id, approved = true } = await req.json()
-
-        // Kong Gateway JWT Duplicate Header bypass
         const authHeader = req.headers.get('Authorization')
-        const token = authHeader ? authHeader.replace('Bearer ', '') : ''
+        console.log('Authorization Header present:', !!authHeader)
 
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-        )
+        if (!authHeader) {
+            console.error('Missing Authorization header')
+            return new Response(JSON.stringify({ error: 'Unauthorized: Missing token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }
 
-        const supabaseAdmin = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SERVICE_ROLE_KEY') ?? ''
-        )
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-        const { data: { user } } = await supabaseClient.auth.getUser(token)
-        if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        console.log('Project URL:', supabaseUrl);
+        console.log('Anon Key length:', supabaseAnonKey.length);
+        console.log('Service Key length:', supabaseServiceKey.length);
+
+        if (!supabaseServiceKey) {
+            console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
+        }
+
+        // Create admin client
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+        // Verify user JWT explicitly
+        const token = authHeader.replace('Bearer ', '').trim();
+
+        // Debug: Check token project ref (no signature verify)
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(atob(parts[1]));
+                console.log('Token Payload Project Ref:', payload.ref, 'Role:', payload.role);
+            }
+        } catch (e) {
+            console.error('Failed to parse token payload:', e.message);
+        }
+
+        // Use the anon client to verify the token - this is often more reliable than the admin client for user tokens
+        const authClient = createClient(supabaseUrl, supabaseAnonKey)
+        const { data: { user }, error: verifyError } = await authClient.auth.getUser(token)
+
+        if (verifyError || !user) {
+            // Check if it's the Service Role Key being used as a token (internal call)
+            if (token === supabaseServiceKey) {
+                console.log('Internal system call with Service Key');
+                // We'll proceed without a user object, but we need to handle this in role check
+            } else {
+                console.error('JWT Verification Failed:', verifyError?.message || 'No user returned', verifyError);
+                return new Response(JSON.stringify({
+                    error: 'Unauthorized',
+                    message: verifyError?.message || 'Invalid or expired token',
+                    details: verifyError
+                }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+        }
+
+        console.log('User authenticated:', user.id)
 
         // Check admin role
-        const { data: adminCheck } = await supabaseAdmin.from('users').select('role').eq('id', user.id).single()
-        if (adminCheck?.role !== 'admin') return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        const { data: adminCheck, error: roleError } = await supabaseAdmin
+            .from('users')
+            .select('role, name')
+            .eq('id', user.id)
+            .single()
+
+        if (roleError || !adminCheck || !['admin', 'super_admin'].includes(adminCheck.role)) {
+            console.error('Role Check Error:', roleError?.message || 'Not an admin', 'Role:', adminCheck?.role)
+            return new Response(JSON.stringify({
+                error: 'Forbidden',
+                message: 'Admin access required',
+                role: adminCheck?.role
+            }), {
+                status: 403,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        const { request_id, approved = true } = await req.json()
 
         const { data: request, error: reqError } = await supabaseAdmin
             .from('deposit_requests')
@@ -61,7 +119,6 @@ serve(async (req) => {
             await supabaseAdmin.from('user_wallets')
                 .update({ deposit_wallet: currentDeposit + request.amount })
                 .eq('user_id', request.user_id)
-
         }
 
         // Update request
@@ -73,16 +130,30 @@ serve(async (req) => {
             .update({ status: txStatus })
             .eq('reference_id', request_id)
 
-        // Notify user via push notification Edge Function
-        await supabaseAdmin.functions.invoke('send_notification', {
-            body: {
-                user_id: request.user_id,
-                title: `Deposit ${approved ? 'Approved' : 'Rejected'}`,
-                body: `Your deposit request of ₹${request.amount} has been ${newStatus}.`,
-                type: 'deposit_status',
-                related_id: request_id
-            }
+        // Log the action
+        await supabaseAdmin.from('admin_activity_logs').insert({
+            admin_id: user.id,
+            admin_name: adminCheck.name || user.email,
+            action: approved ? 'approve_deposit' : 'reject_deposit',
+            target_type: 'deposit_request',
+            target_id: request_id,
+            details: { amount: request.amount, user_id: request.user_id }
         })
+
+        // Notify user via push notification Edge Function
+        try {
+            await supabaseAdmin.functions.invoke('send_notification', {
+                body: {
+                    user_id: request.user_id,
+                    title: `Deposit ${approved ? 'Approved' : 'Rejected'}`,
+                    body: `Your deposit request of ₹${request.amount} has been ${newStatus}.`,
+                    type: 'deposit_status',
+                    related_id: request_id
+                }
+            })
+        } catch (e) {
+            console.error('Notification failed:', e.message)
+        }
 
         return new Response(JSON.stringify({ success: true, status: newStatus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     } catch (e) {

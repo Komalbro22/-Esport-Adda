@@ -52,6 +52,10 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
           'request_id': req['id'],
           'approved': isApproved
         },
+        headers: {
+          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'apikey': SupabaseConfig.anonKey,
+        },
       );
       
       if (response.status == 200) {

@@ -44,22 +44,29 @@ class _CreateAdminScreenState extends State<CreateAdminScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final response = await _supabase.functions.invoke('create_admin', body: {
-        'name': name,
-        'email': email,
-        'password': password,
-        'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
-        'permissions': {
-          'can_manage_games': _canManageGames,
-          'can_manage_tournaments': _canManageTournaments,
-          'can_manage_results': _canManageResults,
-          'can_manage_deposits': _canManageDeposits,
-          'can_manage_withdrawals': _canManageWithdrawals,
-          'can_manage_users': _canManageUsers,
-          'can_send_notifications': _canSendNotifications,
-          'can_view_dashboard': _canViewDashboard,
+      final response = await _supabase.functions.invoke(
+        'create_admin',
+        body: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+          'permissions': {
+            'can_manage_games': _canManageGames,
+            'can_manage_tournaments': _canManageTournaments,
+            'can_manage_results': _canManageResults,
+            'can_manage_deposits': _canManageDeposits,
+            'can_manage_withdrawals': _canManageWithdrawals,
+            'can_manage_users': _canManageUsers,
+            'can_send_notifications': _canSendNotifications,
+            'can_view_dashboard': _canViewDashboard,
+          },
         },
-      });
+        headers: {
+          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'apikey': SupabaseConfig.anonKey,
+        },
+      );
 
       if (response.data?['error'] != null) {
         throw Exception(response.data['error']);

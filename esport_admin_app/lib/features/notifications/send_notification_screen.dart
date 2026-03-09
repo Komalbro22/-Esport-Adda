@@ -66,7 +66,14 @@ class _SendNotificationScreenState extends State<SendNotificationScreen> {
          'type': 'admin_push'
       };
 
-      await _supabase.functions.invoke('send_notification', body: payload);
+      await _supabase.functions.invoke(
+        'send_notification',
+        body: payload,
+        headers: {
+          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'apikey': SupabaseConfig.anonKey,
+        },
+      );
 
       if (mounted) {
         StitchSnackbar.showSuccess(context, 'Notification sent successfully');

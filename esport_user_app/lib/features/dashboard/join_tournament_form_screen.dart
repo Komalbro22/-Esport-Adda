@@ -126,6 +126,10 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
           'tournament_id': widget.tournamentId,
           'team_data': teamData
         },
+        headers: {
+          'Authorization': 'Bearer ${session.accessToken}',
+          'apikey': SupabaseConfig.anonKey,
+        },
       );
       
       print('DEBUG: Response status: ${response.status}');

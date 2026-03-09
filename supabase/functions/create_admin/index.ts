@@ -13,30 +13,30 @@ serve(async (req) => {
         const authHeader = req.headers.get('Authorization');
         if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-        // Client with user's JWT to verify role
-        const userClient = createClient(
-            Deno.env.get('SUPABASE_URL')!,
-            Deno.env.get('SUPABASE_ANON_KEY')!,
-            { global: { headers: { Authorization: authHeader } } }
-        );
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY')!;
 
         // Admin client with service role
-        const adminClient = createClient(
-            Deno.env.get('SUPABASE_URL')!,
-            Deno.env.get('SERVICE_ROLE_KEY')!
-        );
+        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-        // Verify caller is super_admin
-        const { data: { user }, error: authErr } = await userClient.auth.getUser();
-        if (authErr || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        // Verify caller JWT explicitly
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authErr } = await adminClient.auth.getUser(token);
 
-        const { data: callerRec, error: roleErr } = await userClient
+        if (authErr || !user) {
+            console.error('JWT Verification Failed:', authErr?.message || 'No user returned', authErr);
+            return new Response(JSON.stringify({ error: 'Unauthorized', message: authErr?.message || 'Invalid token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        const { data: callerRec, error: roleErr } = await adminClient
             .from('users')
             .select('role, name, is_blocked')
             .eq('id', user.id)
             .single();
 
         if (roleErr || callerRec?.role !== 'super_admin' || callerRec?.is_blocked) {
+            console.error('Caller Role Error:', roleErr?.message || 'Not a super_admin', 'Role:', callerRec?.role);
             return new Response(JSON.stringify({ error: 'Access denied: super_admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
 

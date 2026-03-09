@@ -63,13 +63,20 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
       
       // Notify all joined users via Edge Func
       try {
-        await _supabase.functions.invoke('send_notification', body: {
-          'tournament_id': widget.tournamentId,
-          'title': 'Room Details Updated',
-          'body': 'Room ID and Password for ${widget.tournamentId} have been updated. Get ready!',
-          'type': 'tournament',
-          'is_broadcast': false
-        });
+        await _supabase.functions.invoke(
+          'send_notification',
+          body: {
+            'tournament_id': widget.tournamentId,
+            'title': 'Room Details Updated',
+            'body': 'Room ID and Password for ${widget.tournamentId} have been updated. Get ready!',
+            'type': 'tournament',
+            'is_broadcast': false
+          },
+          headers: {
+            'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+            'apikey': SupabaseConfig.anonKey,
+          },
+        );
       } catch (e) {
         debugPrint('Failed to send push: $e');
       }
@@ -94,20 +101,31 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
          // Use Secure Edge Function to distribute prizes and mark complete
          final response = await _supabase.functions.invoke(
             'distribute_prizes',
-            body: {'tournament_id': widget.tournamentId}
+            body: {'tournament_id': widget.tournamentId},
+            headers: {
+              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'apikey': SupabaseConfig.anonKey,
+            },
          );
          
          if (response.status == 200) {
            if (mounted) StitchSnackbar.showSuccess(context, 'Tournament Completed & Prizes Distributed!');
            
            try {
-             await _supabase.functions.invoke('send_notification', body: {
-               'tournament_id': widget.tournamentId,
-               'title': 'Results Announced',
-               'body': 'Tournament completed. Winnings have been transferred!',
-               'type': 'tournament',
-               'is_broadcast': false
-             });
+             await _supabase.functions.invoke(
+               'send_notification',
+               body: {
+                 'tournament_id': widget.tournamentId,
+                 'title': 'Results Announced',
+                 'body': 'Tournament completed. Winnings have been transferred!',
+                 'type': 'tournament',
+                 'is_broadcast': false
+               },
+               headers: {
+              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'apikey': SupabaseConfig.anonKey,
+            },
+             );
            } catch (_) {}
          } else {
            throw Exception(response.data?['error'] ?? 'Distribution failed');
@@ -118,13 +136,20 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
          if (status == 'ongoing') {
            try {
-             await _supabase.functions.invoke('send_notification', body: {
-               'tournament_id': widget.tournamentId,
-               'title': 'Match Started!',
-               'body': 'The tournament has officially started.',
-               'type': 'tournament',
-               'is_broadcast': false
-             });
+             await _supabase.functions.invoke(
+               'send_notification',
+               body: {
+                 'tournament_id': widget.tournamentId,
+                 'title': 'Match Started!',
+                 'body': 'The tournament has officially started.',
+                 'type': 'tournament',
+                 'is_broadcast': false
+               },
+               headers: {
+              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'apikey': SupabaseConfig.anonKey,
+            },
+             );
            } catch (_) {}
          }
       }
@@ -156,9 +181,16 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
         context.pop();
         setState(() => _isLoading = true);
         try {
-          final res = await _supabase.functions.invoke('cancel_tournament', body: {
-            'tournament_id': widget.tournamentId
-          });
+          final res = await _supabase.functions.invoke(
+            'cancel_tournament',
+            body: {
+              'tournament_id': widget.tournamentId
+            },
+            headers: {
+              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'apikey': SupabaseConfig.anonKey,
+            },
+          );
           if (res.status == 200) {
             if (mounted) StitchSnackbar.showSuccess(context, 'Tournament cancelled & refunded');
           } else {

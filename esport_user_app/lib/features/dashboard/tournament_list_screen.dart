@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class TournamentListScreen extends StatefulWidget {
   final String gameId;
@@ -72,6 +73,10 @@ class _TournamentListView extends StatefulWidget {
 class _TournamentListViewState extends State<_TournamentListView> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
+  bool _isLoadMoreRunning = false;
+  bool _hasNextPage = true;
+  int _page = 0;
+  final int _pageSize = 15;
   List<Map<String, dynamic>> _tournaments = [];
   final ScrollController _scrollController = ScrollController();
 
@@ -79,6 +84,16 @@ class _TournamentListViewState extends State<_TournamentListView> {
   void initState() {
     super.initState();
     _fetchTournaments();
+    _scrollController.addListener(_loadMore);
+  }
+
+  void _loadMore() async {
+    if (_hasNextPage && !_isLoading && !_isLoadMoreRunning && _scrollController.position.extentAfter < 300) {
+      setState(() => _isLoadMoreRunning = true);
+      _page++;
+      await _fetchTournaments(isLoadMore: true);
+      if (mounted) setState(() => _isLoadMoreRunning = false);
+    }
   }
 
   @override
@@ -87,52 +102,77 @@ class _TournamentListViewState extends State<_TournamentListView> {
     super.dispose();
   }
 
-  Future<void> _fetchTournaments() async {
+  Future<void> _fetchTournaments({bool isLoadMore = false}) async {
     try {
+      if (!isLoadMore) {
+        setState(() {
+          _isLoading = true;
+          _page = 0;
+          _hasNextPage = true;
+        });
+      }
+
+      final from = _page * _pageSize;
+      final to = from + _pageSize - 1;
       final user = _supabase.auth.currentUser;
       
+      var query = _supabase.from('tournaments')
+          .select('id, title, entry_fee, total_prize_pool, joined_slots, total_slots, status, start_time, banner_url, tournament_type, per_kill_reward, game_id, games(name)')
+          .eq('game_id', widget.gameId)
+          .eq('status', widget.status)
+          .order('start_time', ascending: widget.status == 'upcoming')
+          .range(from, to);
+
       if (widget.status == 'completed' && user != null) {
-        // Fetch completed tournaments AND the user's specific result for that tournament
-        final data = await _supabase.from('tournaments')
-            .select('*, joined_teams(user_id, rank, kills, total_prize)')
+        query = _supabase.from('tournaments')
+            .select('id, title, entry_fee, total_prize_pool, joined_slots, total_slots, status, start_time, banner_url, tournament_type, per_kill_reward, game_id, joined_teams(user_id, rank, kills, total_prize)')
             .eq('game_id', widget.gameId)
             .eq('status', widget.status)
-            .order('start_time', ascending: false);
+            .order('start_time', ascending: false)
+            .range(from, to);
+      }
             
-        if (mounted) {
-          setState(() {
-            _tournaments = List<Map<String, dynamic>>.from(data).map((t) {
-              final myTeam = (t['joined_teams'] as List).where((team) => team['user_id'] == user.id).toList();
-              t['my_result'] = myTeam.isNotEmpty ? myTeam.first : null;
+      final data = await query;
+      final List<Map<String, dynamic>> fetchedTournaments = List<Map<String, dynamic>>.from(data as List);
+
+      if (mounted) {
+        setState(() {
+          if (isLoadMore) {
+            _tournaments.addAll(fetchedTournaments);
+          } else {
+            _tournaments = fetchedTournaments;
+          }
+          
+          if (widget.status == 'completed' && user != null) {
+             _tournaments = _tournaments.map((t) {
+              final joinedTeams = t['joined_teams'] as List?;
+              final myTeam = joinedTeams?.where((team) => team['user_id'] == user.id).toList();
+              t['my_result'] = myTeam != null && myTeam.isNotEmpty ? myTeam.first : null;
               return t;
             }).toList();
-            _isLoading = false;
-          });
-        }
-      } else {
-        // Normal fetch for upcoming/ongoing
-        final data = await _supabase
-            .from('tournaments')
-            .select('*')
-            .eq('game_id', widget.gameId)
-            .eq('status', widget.status)
-            .order('start_time', ascending: widget.status == 'upcoming');
-            
-        if (mounted) {
-          setState(() {
-            _tournaments = List<Map<String, dynamic>>.from(data);
-            _isLoading = false;
-          });
-        }
+          }
+
+          _hasNextPage = fetchedTournaments.length == _pageSize;
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() {
+        _isLoading = false;
+        _isLoadMoreRunning = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: StitchLoading());
+    if (_isLoading) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
+        itemBuilder: (_, __) => const TournamentShimmer(),
+      );
+    }
     
     if (_tournaments.isEmpty) {
       return RefreshIndicator(
@@ -210,10 +250,11 @@ class _TournamentListViewState extends State<_TournamentListView> {
                                   height: 140,
                                   width: double.infinity,
                                   child: t['banner_url'] != null && t['banner_url'].toString().isNotEmpty
-                                      ? Image.network(
-                                          t['banner_url'], 
+                                      ? CachedNetworkImage(
+                                          imageUrl: t['banner_url'], 
                                           fit: BoxFit.cover, 
-                                          errorBuilder: (c,e,s) => Container(color: const Color(0xFF2A2D36))
+                                          placeholder: (context, url) => const StitchShimmer(),
+                                          errorWidget: (c,e,s) => Container(color: const Color(0xFF2A2D36))
                                         )
                                       : Container(
                                           color: const Color(0xFF2A2D36), 
@@ -393,6 +434,13 @@ class _TournamentListViewState extends State<_TournamentListView> {
               ),
             ),
           ),
+          if (_isLoadMoreRunning)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator(color: StitchTheme.primary)),
+              ),
+            ),
         ],
       ),
     ),
@@ -439,7 +487,12 @@ class _CompletedTournamentCard extends StatelessWidget {
                 height: 140,
                 width: double.infinity,
                 child: t['banner_url'] != null && t['banner_url'].toString().isNotEmpty
-                    ? Image.network(t['banner_url'], fit: BoxFit.cover)
+                    ? CachedNetworkImage(
+                        imageUrl: t['banner_url'], 
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const StitchShimmer(),
+                        errorWidget: (c,e,s) => Container(color: const Color(0xFF2A2D36)),
+                      )
                     : Container(color: const Color(0xFF2A2D36)),
               ),
               Positioned.fill(

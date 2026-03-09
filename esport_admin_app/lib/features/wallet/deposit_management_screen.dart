@@ -53,6 +53,10 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
           'request_id': req['id'],
           'approved': isApproved
         },
+        headers: {
+          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'apikey': SupabaseConfig.anonKey,
+        },
       );
       
       if (response.status == 200) {

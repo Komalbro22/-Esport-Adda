@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({Key? key}) : super(key: key);
@@ -15,8 +16,12 @@ class _HomeTabState extends State<HomeTab> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _games = [];
-  Map<String, dynamic>? _walletStats;
+  List<Map<String, dynamic>> _featuredTournaments = [];
   Map<String, dynamic>? _appSettings;
+  
+  // Performance: Using ValueNotifier for granular updates
+  final ValueNotifier<Map<String, dynamic>?> _walletStatsNotifier = ValueNotifier<Map<String, dynamic>?>(null);
+  
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -31,7 +36,6 @@ class _HomeTabState extends State<HomeTab> {
     super.dispose();
   }
 
-  List<Map<String, dynamic>> _featuredTournaments = [];
 
   Future<void> _fetchData() async {
     try {
@@ -53,11 +57,12 @@ class _HomeTabState extends State<HomeTab> {
       if (mounted) {
         setState(() {
           _games = List<Map<String, dynamic>>.from(futures[0] as List);
-          _walletStats = futures[1] as Map<String, dynamic>;
           _appSettings = futures[2] as Map<String, dynamic>?;
           _featuredTournaments = List<Map<String, dynamic>>.from(futures[3] as List);
           _isLoading = false;
         });
+        // Update wallet separately via notifier to avoid full rebuild
+        _walletStatsNotifier.value = futures[1] as Map<String, dynamic>;
       }
     } catch (e) {
       if (mounted) {
@@ -70,10 +75,56 @@ class _HomeTabState extends State<HomeTab> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: StitchLoading());
+      return Scaffold(
+        backgroundColor: StitchTheme.background,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    StitchShimmer.circular(size: 44),
+                    const Spacer(),
+                    StitchShimmer.circular(size: 40),
+                    const SizedBox(width: 16),
+                    StitchShimmer.rectangular(width: 100, height: 48, borderRadius: BorderRadius.circular(24)),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                StitchShimmer.rectangular(width: 200, height: 24),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 190,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 3,
+                    separatorBuilder: (_, __) => const SizedBox(width: 16),
+                    itemBuilder: (_, __) => StitchShimmer.rectangular(width: 320, height: 190, borderRadius: BorderRadius.circular(24)),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                StitchShimmer.rectangular(width: 150, height: 24),
+                const SizedBox(height: 20),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.9,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: 4,
+                  itemBuilder: (_, __) => StitchShimmer.rectangular(height: 180, borderRadius: BorderRadius.circular(24)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
-
-    final totalBalance = ((_walletStats?['deposit_wallet'] ?? 0) + (_walletStats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
 
     return Scaffold(
       backgroundColor: StitchTheme.background,
@@ -89,7 +140,13 @@ class _HomeTabState extends State<HomeTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Custom Header
-                _buildHeader(totalBalance),
+                ValueListenableBuilder<Map<String, dynamic>?>(
+                  valueListenable: _walletStatsNotifier,
+                  builder: (context, stats, _) {
+                    final balance = ((stats?['deposit_wallet'] ?? 0) + (stats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
+                    return _buildHeader(balance);
+                  },
+                ),
                 
                 const SizedBox(height: 32),
                 
@@ -104,6 +161,7 @@ class _HomeTabState extends State<HomeTab> {
                       letterSpacing: -0.5,
                     ),
                   ),
+                  const SizedBox(height: 20),
                   const SizedBox(height: 20),
                   SizedBox(
                     height: 190,
@@ -362,7 +420,14 @@ class _HomeTabState extends State<HomeTab> {
           children: [
             // Background Image
             if (t['banner_url'] != null)
-              Image.network(t['banner_url'], fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+              CachedNetworkImage(
+                imageUrl: t['banner_url'],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+                placeholder: (context, url) => const StitchShimmer(),
+                errorWidget: (context, url, error) => Container(color: StitchTheme.surfaceHighlight),
+              )
             else
               Container(color: StitchTheme.surfaceHighlight),
             
@@ -459,7 +524,12 @@ class _HomeTabState extends State<HomeTab> {
           fit: StackFit.expand,
           children: [
             game['logo_url'] != null
-                ? Image.network(game['logo_url'], fit: BoxFit.cover)
+                ? CachedNetworkImage(
+                    imageUrl: game['logo_url'],
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => const StitchShimmer(),
+                    errorWidget: (context, url, error) => Container(color: StitchTheme.surfaceHighlight),
+                  )
                 : Container(color: StitchTheme.surfaceHighlight),
             
             // Dark Overlay

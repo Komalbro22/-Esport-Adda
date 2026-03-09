@@ -28,23 +28,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchMetrics() async {
     try {
-      final futures = await Future.wait<dynamic>([
-        _supabase.from('users').select('id').count(CountOption.exact),
-        _supabase.from('tournaments').select('id').inFilter('status', ['upcoming', 'ongoing']).count(CountOption.exact),
-        _supabase.from('deposit_requests').select('id').eq('status', 'pending').count(CountOption.exact),
-        _supabase.from('withdraw_requests').select('id').eq('status', 'pending').count(CountOption.exact),
-        _supabase.from('support_tickets').select('id').eq('status', 'open').count(CountOption.exact),
+      final response = await Future.wait<dynamic>([
+        _supabase.rpc('get_admin_metrics'),
         _supabase.from('app_settings').select().limit(1).maybeSingle(),
       ]);
 
+      final metrics = response[0] as Map<String, dynamic>;
+      final settings = response[1] as Map<String, dynamic>?;
+
       if (mounted) {
         setState(() {
-          _totalUsers = futures[0].count ?? 0;
-          _activeTournaments = futures[1].count ?? 0;
-          _pendingDeposits = futures[2].count ?? 0;
-          _pendingWithdraws = futures[3].count ?? 0;
-          _openTickets = futures[4].count ?? 0;
-          _appSettings = futures[5] as Map<String, dynamic>?;
+          _totalUsers = metrics['total_users'] ?? 0;
+          _activeTournaments = metrics['active_tournaments'] ?? 0;
+          _pendingDeposits = metrics['pending_deposits'] ?? 0;
+          _pendingWithdraws = metrics['pending_withdraws'] ?? 0;
+          _openTickets = metrics['open_tickets'] ?? 0;
+          _appSettings = settings;
           _isLoading = false;
         });
       }
@@ -198,10 +197,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _buildNavCard('TOURNAMENTS', Icons.military_tech_rounded, '/tournaments'),
                             _buildNavCard('PLAYERS', Icons.group_rounded, '/users'),
                             _buildNavCard('FINANCES', Icons.account_balance_rounded, '/finances'),
-                            _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
-                            _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),
-                            if (AdminPermissionService.isSuperAdmin)
-                              _buildNavCard('ADMINS', Icons.shield_rounded, '/admin_management', color: Colors.amber),
+                             _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
+                             _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),
+                             _buildNavCard('USER LOGS', Icons.history_rounded, '/user_logs', color: Colors.cyan),
+                             if (AdminPermissionService.isSuperAdmin)
+                               _buildNavCard('ADMINS', Icons.shield_rounded, '/admin_management', color: Colors.amber),
                           ],
                         ),
                         
@@ -221,6 +221,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         _buildSimpleNavTile('Payment Integration', Icons.payments_rounded, '/payment_settings'),
                         _buildSimpleNavTile('Branding & Configuration', Icons.auto_awesome_rounded, '/app_settings'),
                         _buildSimpleNavTile('Cloud Asset Gallery', Icons.cloud_done_rounded, '/assets'),
+                        _buildSimpleNavTile('Legal Documents (CMS)', Icons.gavel_rounded, '/legal_cms'),
                         
                         const SizedBox(height: 60),
                       ],

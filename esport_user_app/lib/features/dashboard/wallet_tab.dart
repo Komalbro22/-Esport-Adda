@@ -19,23 +19,41 @@ class WalletTab extends StatefulWidget {
 class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
-  Map<String, dynamic>? _walletStats;
+  
+  // Performance: Using ValueNotifier for stats
+  final ValueNotifier<Map<String, dynamic>?> _walletStatsNotifier = ValueNotifier<Map<String, dynamic>?>(null);
+  
   List<Map<String, dynamic>> _transactions = [];
+  bool _isMoreLoading = false;
+  bool _hasMore = true;
+  static const int _pageSize = 20;
+
   late TabController _tabController;
+  final ScrollController _txScrollController = ScrollController();
   StreamSubscription? _walletSubscription;
-  StreamSubscription? _transactionSubscription;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _txScrollController.addListener(_onTxScroll);
     _fetchWalletData();
+  }
+
+  void _onTxScroll() {
+    if (_txScrollController.position.pixels >= _txScrollController.position.maxScrollExtent - 200) {
+      if (!_isMoreLoading && _hasMore && _tabController.index == 1) {
+        _loadMoreTransactions();
+      }
+    }
   }
 
   @override
   void dispose() {
     _walletSubscription?.cancel();
-    _transactionSubscription?.cancel();
+    _txScrollController.dispose();
+    _tabController.dispose();
+    _walletStatsNotifier.dispose();
     super.dispose();
   }
 
@@ -45,18 +63,25 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
       if (user == null) return;
 
       // 1. Initial Fetch
-      final stats = await _supabase.from('user_wallets').select('*').eq('user_id', user.id).single();
-      final txs = await _supabase.from('wallet_transactions').select('*').eq('user_id', user.id).order('created_at', ascending: false).limit(20);
+      final results = await Future.wait([
+        _supabase.from('user_wallets').select('*').eq('user_id', user.id).single(),
+        _supabase.from('wallet_transactions')
+            .select('id, type, amount, status, created_at, wallet_type')
+            .eq('user_id', user.id)
+            .order('created_at', ascending: false)
+            .limit(_pageSize),
+      ]);
 
       if (mounted) {
         setState(() {
-          _walletStats = stats;
-          _transactions = List<Map<String, dynamic>>.from(txs);
+          _transactions = List<Map<String, dynamic>>.from(results[1] as List);
+          _hasMore = _transactions.length == _pageSize;
           _isLoading = false;
         });
+        _walletStatsNotifier.value = results[0] as Map<String, dynamic>;
       }
 
-      // 2. Setup Real-time Listeners
+      // 2. Setup Real-time Listener for Wallet Balance only (transactions use pagination)
       _walletSubscription?.cancel();
       _walletSubscription = _supabase
           .from('user_wallets')
@@ -64,28 +89,41 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
           .eq('user_id', user.id)
           .listen((data) {
             if (data.isNotEmpty && mounted) {
-              setState(() => _walletStats = data.first);
-            }
-          });
-
-      _transactionSubscription?.cancel();
-      _transactionSubscription = _supabase
-          .from('wallet_transactions')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(20)
-          .listen((data) {
-            if (mounted) {
-              setState(() => _transactions = List<Map<String, dynamic>>.from(data));
+              _walletStatsNotifier.value = data.first;
             }
           });
 
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        StitchSnackbar.showError(context, 'Failed to sync wallet: $e');
+        StitchSnackbar.showError(context, 'Failed to sync wallet');
       }
+    }
+  }
+
+  Future<void> _loadMoreTransactions() async {
+    if (_isMoreLoading || !_hasMore) return;
+    
+    setState(() => _isMoreLoading = true);
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+      final txs = await _supabase.from('wallet_transactions')
+          .select('id, type, amount, status, created_at, wallet_type')
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false)
+          .range(_transactions.length, _transactions.length + _pageSize - 1);
+
+      if (mounted) {
+        setState(() {
+          final newTxs = List<Map<String, dynamic>>.from(txs);
+          _transactions.addAll(newTxs);
+          _hasMore = newTxs.length == _pageSize;
+          _isMoreLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isMoreLoading = false);
     }
   }
 
@@ -162,7 +200,8 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     final amtController = TextEditingController();
     final upiController = TextEditingController();
     
-    final winningBal = _walletStats?['winning_wallet'] ?? 0;
+    final stats = _walletStatsNotifier.value;
+    final winningBal = stats?['winning_wallet'] ?? 0;
 
     StitchDialog.show(
       context: context,
@@ -226,37 +265,40 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Scaffold(body: StitchLoading());
+    return ValueListenableBuilder<Map<String, dynamic>?>(
+      valueListenable: _walletStatsNotifier,
+      builder: (context, stats, child) {
+        final depositBal = stats?['deposit_wallet'] ?? 0;
+        final winningBal = stats?['winning_wallet'] ?? 0;
+        final totalBal = depositBal + winningBal;
 
-    final depositBal = _walletStats?['deposit_wallet'] ?? 0;
-    final winningBal = _walletStats?['winning_wallet'] ?? 0;
-    final totalBal = depositBal + winningBal;
-
-    return Scaffold(
-      backgroundColor: StitchTheme.background,
-      appBar: AppBar(
-        title: const Text('FINANCIAL HUB', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: StitchTheme.primary,
-          indicatorWeight: 3,
-          labelColor: StitchTheme.primary,
-          unselectedLabelColor: StitchTheme.textMuted,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-          tabs: const [
-            Tab(text: 'OVERVIEW'),
-            Tab(text: 'HISTORY'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildSummary(depositBal, winningBal, totalBal),
-          _buildTransactions(),
-        ],
-      ),
+        return Scaffold(
+          backgroundColor: StitchTheme.background,
+          appBar: AppBar(
+            title: const Text('FINANCIAL HUB', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
+            centerTitle: true,
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: StitchTheme.primary,
+              indicatorWeight: 3,
+              labelColor: StitchTheme.primary,
+              unselectedLabelColor: StitchTheme.textMuted,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+              tabs: const [
+                Tab(text: 'OVERVIEW'),
+                Tab(text: 'HISTORY'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildSummary(depositBal, winningBal, totalBal),
+              _buildTransactions(),
+            ],
+          ),
+        );
+      }
     );
   }
 
@@ -410,21 +452,25 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
       );
     }
     
-    final ScrollController txScrollController = ScrollController();
-    
     return RefreshIndicator(
       onRefresh: _fetchWalletData,
       color: StitchTheme.primary,
       backgroundColor: StitchTheme.surface,
       child: Scrollbar(
-        controller: txScrollController,
+        controller: _txScrollController,
         child: ListView.separated(
-          controller: txScrollController,
+          controller: _txScrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
-          itemCount: _transactions.length,
+          itemCount: _transactions.length + (_hasMore ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
+            if (index == _transactions.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: StitchLoading()),
+              );
+            }
             final tx = _transactions[index];
             final type = tx['type'].toString();
             final isCredit = ['deposit', 'tournament_win', 'referral_bonus'].contains(type);

@@ -208,7 +208,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
             'is_broadcast': false,
           };
 
-          await _supabase.functions.invoke('send_notification', body: payload);
+          await _supabase.functions.invoke(
+            'send_notification',
+            body: payload,
+            headers: {
+              'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+              'apikey': SupabaseConfig.anonKey,
+            },
+          );
           
           if (mounted) {
             context.pop();

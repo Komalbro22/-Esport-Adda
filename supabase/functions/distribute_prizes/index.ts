@@ -13,36 +13,94 @@ serve(async (req) => {
     }
 
     try {
-        const { tournament_id } = await req.json()
-
-        // Kong Gateway JWT Duplicate Header bypass
         const authHeader = req.headers.get('Authorization')
-        const token = authHeader ? authHeader.replace('Bearer ', '') : ''
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
 
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-        )
-        const supabaseAdmin = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SERVICE_ROLE_KEY') ?? ''
-        )
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-        const { data: { user } } = await supabaseClient.auth.getUser(token)
-        if (!user) return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+        if (!supabaseServiceKey) {
+            console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
+        }
 
-        const { data: adminCheck } = await supabaseAdmin.from('users').select('role').eq('id', user.id).single()
-        if (adminCheck?.role !== 'admin') return new Response(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        })
+        // Create admin client
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+        // Verify user JWT explicitly
+        const token = authHeader.replace('Bearer ', '').trim();
+
+        // Debug: Check token project ref (no signature verify)
+        try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+                const payload = JSON.parse(atob(parts[1]));
+                console.log('Token Payload Project Ref:', payload.ref, 'Role:', payload.role);
+            }
+        } catch (e) {
+            console.error('Failed to parse token payload:', e.message);
+        }
+
+        // Use the anon client to verify the token for better reliability
+        const authClient = createClient(supabaseUrl, supabaseAnonKey)
+        const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+
+        if (authError || !user) {
+            // Check if it's the Service Role Key being used as a token
+            if (token === supabaseServiceKey) {
+                console.log('Internal system call with Service Key');
+            } else {
+                console.error('JWT Verification Failed:', authError?.message || 'No user returned', authError);
+                return new Response(JSON.stringify({
+                    error: 'Unauthorized',
+                    message: authError?.message || 'Invalid or expired token'
+                }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+        }
+
+        if (user) console.log('User authenticated:', user.id)
+
+        // Check role (Skip if it's an internal service call with no user)
+        let isAdmin = false;
+        if (token === supabaseServiceKey) {
+            isAdmin = true;
+        } else if (user) {
+            const { data: adminCheck, error: roleError } = await supabaseAdmin
+                .from('users')
+                .select('role, name')
+                .eq('id', user.id)
+                .single()
+
+            if (!roleError && adminCheck && ['admin', 'super_admin'].includes(adminCheck.role)) {
+                isAdmin = true;
+            } else {
+                console.error('Role Check Error:', roleError?.message || 'Not an admin', 'Role:', adminCheck?.role)
+            }
+        }
+
+        if (!isAdmin) {
+            return new Response(JSON.stringify({
+                error: 'Forbidden',
+                message: 'Admin access required'
+            }), {
+                status: 403,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        const { tournament_id } = await req.json()
 
         const { data: tournament } = await supabaseAdmin
             .from('tournaments')
-            .select('per_kill_reward, rank_prizes, status')
+            .select('per_kill_reward, rank_prizes, status, title')
             .eq('id', tournament_id)
             .single()
 
@@ -85,16 +143,16 @@ serve(async (req) => {
                 // Get current wallet
                 const { data: wallet } = await supabaseAdmin
                     .from('user_wallets')
-                    .select('winning_wallet')
+                    .select('id, winning_wallet')
                     .eq('user_id', user_id)
                     .single()
 
                 const currentWinning = wallet?.winning_wallet || 0
 
-                // Update wallet directly to avoid missing RPC errors
+                // Update wallet directly
                 await supabaseAdmin.from('user_wallets')
                     .update({ winning_wallet: currentWinning + totalPrize })
-                    .eq('user_id', user_id)
+                    .eq('id', wallet.id)
 
                 await supabaseAdmin.from('wallet_transactions').insert({
                     user_id: user_id,
@@ -102,13 +160,24 @@ serve(async (req) => {
                     type: 'tournament_win',
                     wallet_type: 'winning',
                     status: 'completed',
-                    reference_id: tournament_id
+                    reference_id: tournament_id,
+                    message: `Won ₹${totalPrize} from tournament: ${tournament.title}`
                 })
-                await supabaseAdmin.from('notifications').insert({
-                    user_id: user_id,
-                    title: 'Tournament Winnings Credited',
-                    body: `You won ₹${totalPrize} from Rank: ${rank}, Kills: ${kills}.`
-                })
+
+                // Notify user via push notification Edge Function
+                try {
+                    await supabaseAdmin.functions.invoke('send_notification', {
+                        body: {
+                            user_id: user_id,
+                            title: 'Tournament Winnings Credited',
+                            body: `You won ₹${totalPrize} from Rank: ${rank}, Kills: ${kills} in ${tournament.title}.`,
+                            type: 'tournament_win',
+                            related_id: tournament_id
+                        }
+                    })
+                } catch (e) {
+                    console.error('Notification failed:', e.message)
+                }
             }
 
             // Update joined_teams
@@ -122,6 +191,16 @@ serve(async (req) => {
         await supabaseAdmin.from('tournaments')
             .update({ status: 'completed' })
             .eq('id', tournament_id)
+
+        // Log action
+        await supabaseAdmin.from('admin_activity_logs').insert({
+            admin_id: user?.id || 'system',
+            admin_name: (user ? (adminCheck?.name || user.email) : 'System'),
+            action: 'distribute_prizes',
+            target_type: 'tournament',
+            target_id: tournament_id,
+            details: { title: tournament.title }
+        })
 
         return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     } catch (e) {

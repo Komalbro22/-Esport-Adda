@@ -14,10 +14,60 @@ serve(async (req) => {
     }
 
     try {
-        const supabaseClient = createClient(
-            Deno.env.get('SUPABASE_URL') ?? '',
-            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        )
+        const authHeader = req.headers.get('Authorization')
+        if (!authHeader) {
+            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+
+        if (!supabaseServiceKey) {
+            console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
+        }
+
+        // Create admin client
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+
+        // Verify user JWT explicitly
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+
+        if (authError || !user) {
+            // Check if it's an internal call using SERVICE_ROLE_KEY (e.g. from other edge functions)
+            if (token === supabaseServiceKey) {
+                // Internal system call - no user object, but valid
+            } else {
+                console.error('Auth Error:', authError?.message || 'User not found');
+                return new Response(JSON.stringify({
+                    error: 'User not authenticated',
+                    details: authError?.message || 'User not found.'
+                }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+        } else {
+            // Verify role
+            const { data: profile } = await supabaseAdmin
+                .from('users')
+                .select('role, is_blocked')
+                .eq('id', user.id)
+                .single()
+
+            if (!profile || (profile.role !== 'admin' && profile.role !== 'super_admin') || profile.is_blocked) {
+                console.error('Forbidden: User is not an admin', profile?.role);
+                return new Response(JSON.stringify({ error: 'Access denied: admins only' }), {
+                    status: 403,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
+            console.log('Admin authenticated:', user.id);
+        }
 
         const payload = await req.json()
         const { user_id, title, body, type, related_id, tournament_id, is_broadcast } = payload
@@ -26,28 +76,28 @@ serve(async (req) => {
         let targetUserIds: string[] = []
         if (is_broadcast) {
             // Fetch all users with valid fcm_token
-            const { data: users, error } = await supabaseClient
+            const { data: users, error } = await supabaseAdmin
                 .from('users')
                 .select('id, fcm_token')
                 .not('fcm_token', 'is', null)
 
             if (users && users.length > 0) {
-                targetTokens = users.map(u => u.fcm_token).filter(t => t);
+                targetTokens = users.map((u: any) => u.fcm_token).filter((t: any) => t);
             }
         } else if (tournament_id) {
             // Fetch users who joined this tournament
-            const { data: participants, error } = await supabaseClient
+            const { data: participants, error } = await supabaseAdmin
                 .from('tournament_participants')
                 .select('user_id, users(fcm_token)')
                 .eq('tournament_id', tournament_id)
 
             if (participants && participants.length > 0) {
-                targetTokens = participants.map((p: any) => p.users?.fcm_token).filter(t => t);
+                targetTokens = participants.map((p: any) => p.users?.fcm_token).filter((t: any) => t);
                 targetUserIds = participants.map((p: any) => p.user_id);
             }
         } else if (user_id) {
             // Single user
-            const { data: user, error } = await supabaseClient
+            const { data: user, error } = await supabaseAdmin
                 .from('users')
                 .select('fcm_token')
                 .eq('id', user_id)
@@ -73,7 +123,7 @@ serve(async (req) => {
         }
 
         if (notificationsToInsert.length > 0) {
-            const { error: dbError } = await supabaseClient.from('notifications').insert(notificationsToInsert)
+            const { error: dbError } = await supabaseAdmin.from('notifications').insert(notificationsToInsert)
             if (dbError) console.error("DB Insert Error: ", dbError)
         }
 

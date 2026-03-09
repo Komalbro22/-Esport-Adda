@@ -49,6 +49,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Precache critical assets
+    precacheImage(const AssetImage('assets/images/logo.png'), context);
+    // You can also precache network images if you have their URLs early
+  }
+
+  @override
   void dispose() {
     _authSubscription.cancel();
     super.dispose();
@@ -57,7 +65,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(

@@ -90,7 +90,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       isPassword: true,
                       prefixIcon: const Icon(Icons.lock_outline),
                     ),
-                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        child: const Text('Forgot Password?', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: StitchButton(

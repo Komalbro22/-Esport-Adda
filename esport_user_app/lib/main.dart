@@ -7,6 +7,10 @@ import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 import 'features/auth/login_screen.dart';
+import 'features/auth/forgot_password_screen.dart';
+import 'features/auth/reset_password_screen.dart';
+import 'features/auth/reset_password_screen.dart';
+import 'features/profile/legal_documents_screen.dart';
 import 'features/auth/signup_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/dashboard/tournament_list_screen.dart';
@@ -50,11 +54,41 @@ void main() async {
 
   // Real values provided later, these are placeholder initialization
   await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL', defaultValue: 'https://scdurogygxupczckioel.supabase.co'),
-    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjZHVyb2d5Z3h1cGN6Y2tpb2VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MDE2MzYsImV4cCI6MjA4ODE3NzYzNn0.7j5m2MibEbEHnR46AbgncNecEXxpEGRAAwdHujKPjL0'),
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
   );
 
   runApp(const GamerApp());
+}
+
+class GamerApp extends StatefulWidget {
+  const GamerApp({Key? key}) : super(key: key);
+
+  @override
+  State<GamerApp> createState() => _GamerAppState();
+}
+
+class _GamerAppState extends State<GamerApp> {
+  @override
+  void initState() {
+    super.initState();
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.passwordRecovery) {
+        _router.go('/reset-password');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: 'Esports Adda',
+      theme: StitchTheme.themeData,
+      routerConfig: _router,
+      debugShowCheckedModeBanner: false,
+    );
+  }
 }
 
 final _router = GoRouter(
@@ -65,8 +99,16 @@ final _router = GoRouter(
       builder: (context, state) => const LoginScreen(),
     ),
     GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
+    ),
+    GoRoute(
       path: '/signup',
       builder: (context, state) => const SignupScreen(),
+    ),
+    GoRoute(
+      path: '/reset-password',
+      builder: (context, state) => const ResetPasswordScreen(),
     ),
     GoRoute(
       path: '/dashboard',
@@ -117,6 +159,10 @@ final _router = GoRouter(
       builder: (context, state) => const SettingsScreen(),
     ),
     GoRoute(
+      path: '/legal/:id',
+      builder: (context, state) => LegalDocumentsScreen(docId: state.pathParameters['id']!),
+    ),
+    GoRoute(
       path: '/support',
       builder: (context, state) => const SupportHomeScreen(),
     ),
@@ -135,16 +181,4 @@ final _router = GoRouter(
   ],
 );
 
-class GamerApp extends StatelessWidget {
-  const GamerApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'Esports Adda',
-      theme: StitchTheme.themeData,
-      routerConfig: _router,
-      debugShowCheckedModeBanner: false,
-    );
-  }
-}
+// DELETED GamerApp Stateless class as it is now Stateful above
