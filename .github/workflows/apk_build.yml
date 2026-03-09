@@ -37,8 +37,26 @@ jobs:
         run: flutter pub get
         working-directory: ${{ matrix.app }}
 
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
+        working-directory: ${{ matrix.app }}
+
+      - name: Create key.properties
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=esportadda-release.keystore" >> android/key.properties
+        working-directory: ${{ matrix.app }}
+
       - name: Build APK (Release)
-        run: flutter build apk --release
+        run: flutter build apk --release --build-number=${{ github.run_number }}
         working-directory: ${{ matrix.app }}
 
       - name: Upload APK Artifact
