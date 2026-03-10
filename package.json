@@ -3,7 +3,9 @@
     "version": "1.0.0",
     "description": "Supabase management scripts for Esport Adda",
     "scripts": {
-        "deploy:functions": "npx supabase functions deploy distribute_prizes approve_deposit send_notification cancel_tournament join_tournament --no-verify-jwt",
+        "deploy:functions": "npx supabase functions deploy distribute_prizes approve_deposit send_notification cancel_tournament join_tournament manage_challenges manage_fair_play --no-verify-jwt",
+        "deploy:challenge": "npx supabase functions deploy manage_challenges --no-verify-jwt",
+        "deploy:fairplay": "npx supabase functions deploy manage_fair_play --no-verify-jwt",
         "deploy:all": "npx supabase functions deploy --no-verify-jwt",
         "supabase:login": "npx supabase login",
         "supabase:link": "npx supabase link",

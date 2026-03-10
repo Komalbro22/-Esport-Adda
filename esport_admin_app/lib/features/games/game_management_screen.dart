@@ -43,6 +43,10 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
     final descCtrl = TextEditingController(text: game?['description']);
     final logoCtrl = TextEditingController(text: game?['logo_url']);
     bool isActive = game?['is_active'] ?? true;
+    bool challengeEnabled = game?['challenge_enabled'] ?? false;
+    final commissionCtrl = TextEditingController(text: (game?['challenge_commission_percent'] ?? 10).toString());
+    final minEntryCtrl = TextEditingController(text: (game?['challenge_min_entry_fee'] ?? 10).toString());
+    List<String> allowedModes = List<String>.from(game?['challenge_modes'] ?? ['1v1']);
     bool isUploading = false;
 
     Future<void> pickAndUpload(StateSetter setDialogState) async {
@@ -125,7 +129,38 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
                 value: isActive,
                 activeColor: StitchTheme.primary,
                 onChanged: (v) => setDialogState(() => isActive = v),
-              )
+              ),
+              const Divider(color: Colors.white10, height: 32),
+              SwitchListTile(
+                title: const Text('Enable Challenges', style: TextStyle(color: StitchTheme.textMain)),
+                value: challengeEnabled,
+                activeColor: StitchTheme.primary,
+                onChanged: (v) => setDialogState(() => challengeEnabled = v),
+              ),
+              if (challengeEnabled) ...[
+                const SizedBox(height: 12),
+                StitchInput(label: 'Commission %', controller: commissionCtrl, keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                StitchInput(label: 'Min Entry Fee', controller: minEntryCtrl, keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                const Text('Allowed Modes', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                Wrap(
+                  spacing: 8,
+                  children: ['1v1', '2v2', '4v4'].map((mode) {
+                    final isSelected = allowedModes.contains(mode);
+                    return FilterChip(
+                      label: Text(mode),
+                      selected: isSelected,
+                      onSelected: (v) {
+                        setDialogState(() {
+                          if (v) allowedModes.add(mode);
+                          else allowedModes.remove(mode);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           );
         }
@@ -142,6 +177,10 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
           'description': descCtrl.text.trim(),
           'logo_url': logoCtrl.text.trim().isEmpty ? null : logoCtrl.text.trim(),
           'is_active': isActive,
+          'challenge_enabled': challengeEnabled,
+          'challenge_commission_percent': double.tryParse(commissionCtrl.text) ?? 10.0,
+          'challenge_min_entry_fee': double.tryParse(minEntryCtrl.text) ?? 10.0,
+          'challenge_modes': allowedModes,
         };
 
         try {

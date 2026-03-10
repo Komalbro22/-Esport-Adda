@@ -42,6 +42,12 @@ class AdminPermissionService {
       (_perms['can_manage_support'] == true) ||
       (_perms['can_manage_users'] == true);
 
+  static bool get canManageChallenges =>
+      isSuperAdmin || (_perms['can_manage_challenges'] == true);
+
+  static bool get canViewAnalytics =>
+      isSuperAdmin || (_perms['can_view_analytics'] != false);
+
   static bool get canViewDashboard =>
       isSuperAdmin || (_perms['can_view_dashboard'] != false);
 

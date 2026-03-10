@@ -90,7 +90,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     // Fix: Must select is_active to filter active games
     final gamesRes = await _supabase.from('games').select('id, name, is_active');
     final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(gamesRes);
-    final activeGames = games.where((g) => g['is_active'] == true).toList();
+    // Filter out games that have challenges enabled (cannot have tournaments)
+    final activeGames = games.where((g) => g['is_active'] == true && g['challenge_enabled'] != true).toList();
 
     if (activeGames.isEmpty && !isEditing) {
       if (mounted) StitchSnackbar.showError(context, 'Please add an active game first');

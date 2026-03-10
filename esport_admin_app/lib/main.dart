@@ -25,6 +25,11 @@ import 'features/admins/edit_admin_permissions_screen.dart';
 import 'features/admins/admin_activity_log_screen.dart';
 import 'features/users/user_activity_log_screen.dart';
 import 'features/settings/legal_management_screen.dart';
+import 'features/disputes/dispute_center_screen.dart';
+import 'features/disputes/dispute_detail_screen.dart';
+import 'features/users/fair_play_score_logs_screen.dart';
+import 'features/challenges/challenge_analytics_screen.dart';
+import 'features/challenges/challenge_management_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -188,6 +193,41 @@ final _router = GoRouter(
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.isSuperAdmin,
         child: const LegalManagementScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/disputes',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageResults,
+        child: const DisputeCenterScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/dispute_detail/:id',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageResults,
+        child: DisputeDetailScreen(challengeId: state.pathParameters['id']!),
+      ),
+    ),
+    GoRoute(
+      path: '/user_fair_play_logs/:userId',
+      builder: (context, state) => FairPlayScoreLogsScreen(
+        userId: state.pathParameters['userId']!,
+        username: state.uri.queryParameters['username'],
+      ),
+    ),
+    GoRoute(
+      path: '/challenge_analytics',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canViewAnalytics,
+        child: const ChallengeAnalyticsScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/challenge_management',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageChallenges,
+        child: const ChallengeManagementScreen(),
       ),
     ),
   ],

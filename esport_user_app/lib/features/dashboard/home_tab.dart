@@ -512,18 +512,21 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildGameCard(Map<String, dynamic> game) {
-    return GestureDetector(
-      onTap: () => context.push('/tournaments/${game['id']}?name=${game['name']}'),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: StitchTheme.surface,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            game['logo_url'] != null
+    final bool challengeEnabled = game['challenge_enabled'] == true;
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: StitchTheme.surface,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background Image
+          GestureDetector(
+            onTap: () => context.push('/tournaments/${game['id']}?name=${game['name']}'),
+            child: game['logo_url'] != null
                 ? CachedNetworkImage(
                     imageUrl: game['logo_url'],
                     fit: BoxFit.cover,
@@ -531,31 +534,69 @@ class _HomeTabState extends State<HomeTab> {
                     errorWidget: (context, url, error) => Container(color: StitchTheme.surfaceHighlight),
                   )
                 : Container(color: StitchTheme.surfaceHighlight),
-            
-            // Dark Overlay
-            Container(
+          ),
+          
+          // Dark Overlay
+          IgnorePointer(
+            child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                 ),
               ),
             ),
-            
+          ),
+          
+          // Challenge Badge if enabled
+          if (challengeEnabled)
             Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Text(
-                game['name'].toString().toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: -0.5),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              top: 12,
+              right: 12,
+              child: GestureDetector(
+                onTap: () => context.push('/tournaments/${game['id']}?name=${game['name']}&tab=3'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurpleAccent,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(color: Colors.deepPurpleAccent.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.bolt_rounded, color: Colors.white, size: 10),
+                      SizedBox(width: 2),
+                      Text('CHALLENGES', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    game['name'].toString().toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: -0.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.5), size: 12),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

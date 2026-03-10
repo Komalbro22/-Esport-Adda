@@ -18,6 +18,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _pendingDeposits = 0;
   int _pendingWithdraws = 0;
   int _openTickets = 0;
+  int _pendingDisputes = 0;
   Map<String, dynamic>? _appSettings;
 
   @override
@@ -43,6 +44,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _pendingDeposits = metrics['pending_deposits'] ?? 0;
           _pendingWithdraws = metrics['pending_withdraws'] ?? 0;
           _openTickets = metrics['open_tickets'] ?? 0;
+          _pendingDisputes = metrics['pending_disputes'] ?? 0;
           _appSettings = settings;
           _isLoading = false;
         });
@@ -167,8 +169,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _buildModernStat('USERS', _totalUsers.toString(), Icons.people_rounded, StitchTheme.primary, onTap: () => context.push('/users')),
                             _buildModernStat('ACTIVE', _activeTournaments.toString(), Icons.emoji_events_rounded, StitchTheme.warning, onTap: () => context.push('/tournaments')),
                             _buildModernStat('DEPOSITS', _pendingDeposits.toString(), Icons.add_circle_outline_rounded, StitchTheme.success, highlight: _pendingDeposits > 0, onTap: () => context.push('/finances?tab=0')),
-                            _buildModernStat('WITHDRAWS', _pendingWithdraws.toString(), Icons.remove_circle_outline_rounded, StitchTheme.error, highlight: _pendingWithdraws > 0, onTap: () => context.push('/finances?tab=1')),
-                            _buildModernStat('TICKETS', _openTickets.toString(), Icons.message_rounded, StitchTheme.accent, highlight: _openTickets > 0, onTap: () => context.push('/support')),
+                             _buildModernStat('WITHDRAWS', _pendingWithdraws.toString(), Icons.remove_circle_outline_rounded, StitchTheme.error, highlight: _pendingWithdraws > 0, onTap: () => context.push('/finances?tab=1')),
+                             _buildModernStat('DISPUTES', _pendingDisputes.toString(), Icons.gavel_rounded, Colors.orange, highlight: _pendingDisputes > 0, onTap: () => context.push('/disputes')),
+                             _buildModernStat('TICKETS', _openTickets.toString(), Icons.message_rounded, StitchTheme.accent, highlight: _openTickets > 0, onTap: () => context.push('/support')),
                           ],
                         ),
                         
@@ -195,9 +198,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             _buildNavCard('GAMES', Icons.sports_esports_rounded, '/games'),
                             _buildNavCard('TOURNAMENTS', Icons.military_tech_rounded, '/tournaments'),
+                            _buildNavCard('CHALLENGES', Icons.bolt_rounded, '/challenge_management', color: Colors.blueAccent),
                             _buildNavCard('PLAYERS', Icons.group_rounded, '/users'),
                             _buildNavCard('FINANCES', Icons.account_balance_rounded, '/finances'),
                              _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
+                             _buildNavCard('DISPUTE CENTER', Icons.gavel_rounded, '/disputes', badge: _pendingDisputes, color: Colors.orange),
                              _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),
                              _buildNavCard('USER LOGS', Icons.history_rounded, '/user_logs', color: Colors.cyan),
                              if (AdminPermissionService.isSuperAdmin)

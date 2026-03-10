@@ -3,28 +3,140 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../challenges/challenge_list_view.dart';
 
 class TournamentListScreen extends StatefulWidget {
   final String gameId;
   final String gameName;
+  final int initialTabIndex;
 
-  const TournamentListScreen({Key? key, required this.gameId, required this.gameName}) : super(key: key);
+  const TournamentListScreen({
+    Key? key, 
+    required this.gameId, 
+    required this.gameName,
+    this.initialTabIndex = 0,
+  }) : super(key: key);
 
   @override
   State<TournamentListScreen> createState() => _TournamentListScreenState();
 }
 
-class _TournamentListScreenState extends State<TournamentListScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _TournamentListScreenState extends State<TournamentListScreen> with TickerProviderStateMixin {
+  TabController? _tabController;
+  late Future<Map<String, dynamic>> _dataCheckFuture;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _dataCheckFuture = _checkGameData();
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, dynamic>> _checkGameData() async {
+    try {
+      final gameRes = await Supabase.instance.client
+          .from('games')
+          .select('challenge_enabled')
+          .eq('id', widget.gameId)
+          .single();
+
+      final tCountRes = await Supabase.instance.client
+          .from('tournaments')
+          .select('id')
+          .eq('game_id', widget.gameId)
+          .limit(1);
+      
+      final int count = (tCountRes as List).length;
+      
+      return {
+        'challenge_enabled': gameRes['challenge_enabled'] == true,
+        'tournament_count': count,
+      };
+    } catch (_) {
+      return {'challenge_enabled': false, 'tournament_count': 0};
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _dataCheckFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF13151D),
+            body: Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
+          );
+        }
+
+        final bool challengeEnabled = snapshot.data!['challenge_enabled'] ?? false;
+        final int tournamentCount = snapshot.data!['tournament_count'] ?? 0;
+        
+        // Scenario 1: Challenge Only (On AND No Tournaments)
+        if (challengeEnabled && tournamentCount == 0) {
+          return _buildChallengeOnlyScreen();
+        }
+
+        // Scenario 2: Tournament Only or Mixed
+        final tabs = <Tab>[
+          const Tab(text: 'Upcoming'),
+          const Tab(text: 'Ongoing'),
+          const Tab(text: 'Completed'),
+        ];
+        
+        final children = <Widget>[
+          _TournamentListView(gameId: widget.gameId, status: 'upcoming', gameName: widget.gameName),
+          _TournamentListView(gameId: widget.gameId, status: 'ongoing', gameName: widget.gameName),
+          _TournamentListView(gameId: widget.gameId, status: 'completed', gameName: widget.gameName),
+        ];
+
+        if (challengeEnabled) {
+          tabs.add(const Tab(text: 'Challenges'));
+          children.add(ChallengeListView(gameId: widget.gameId, gameName: widget.gameName, showAppBar: false));
+        }
+
+        final targetLength = tabs.length;
+        
+        if (_tabController == null || _tabController!.length != targetLength) {
+          int index = widget.initialTabIndex;
+          if (index >= targetLength) index = 0;
+          _tabController = TabController(length: targetLength, vsync: this, initialIndex: index);
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.gameName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () => context.pop(),
+            ),
+            bottom: TabBar(
+              controller: _tabController!,
+              indicatorColor: Colors.blueAccent,
+              labelColor: Colors.blueAccent,
+              unselectedLabelColor: Colors.white60,
+              indicatorWeight: 3,
+              dividerColor: Colors.transparent,
+              isScrollable: targetLength > 3,
+              tabs: tabs,
+            ),
+          ),
+          backgroundColor: const Color(0xFF13151D),
+          body: TabBarView(
+            controller: _tabController!,
+            children: children,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChallengeOnlyScreen() {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.gameName, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -32,29 +144,9 @@ class _TournamentListScreenState extends State<TournamentListScreen> with Single
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.blueAccent,
-          labelColor: Colors.blueAccent,
-          unselectedLabelColor: Colors.white60,
-          indicatorWeight: 3,
-          dividerColor: Colors.transparent,
-          tabs: const [
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Ongoing'),
-            Tab(text: 'Completed'),
-          ],
-        ),
       ),
       backgroundColor: const Color(0xFF13151D),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _TournamentListView(gameId: widget.gameId, status: 'upcoming', gameName: widget.gameName),
-          _TournamentListView(gameId: widget.gameId, status: 'ongoing', gameName: widget.gameName),
-          _TournamentListView(gameId: widget.gameId, status: 'completed', gameName: widget.gameName),
-        ],
-      ),
+      body: ChallengeListView(gameId: widget.gameId, gameName: widget.gameName, showAppBar: false),
     );
   }
 }

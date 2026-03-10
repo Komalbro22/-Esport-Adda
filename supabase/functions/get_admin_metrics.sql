@@ -11,19 +11,22 @@ DECLARE
     deposit_count int;
     withdraw_count int;
     ticket_count int;
+    dispute_count int;
 BEGIN
     SELECT count(*) INTO user_count FROM users;
     SELECT count(*) INTO tournament_count FROM tournaments WHERE status IN ('upcoming', 'ongoing');
     SELECT count(*) INTO deposit_count FROM deposit_requests WHERE status = 'pending';
     SELECT count(*) INTO withdraw_count FROM withdraw_requests WHERE status = 'pending';
     SELECT count(*) INTO ticket_count FROM support_tickets WHERE status = 'open';
+    SELECT count(*) INTO dispute_count FROM challenges WHERE status = 'dispute';
 
     result := json_build_object(
         'total_users', user_count,
         'active_tournaments', tournament_count,
         'pending_deposits', deposit_count,
         'pending_withdraws', withdraw_count,
-        'open_tickets', ticket_count
+        'open_tickets', ticket_count,
+        'pending_disputes', dispute_count
     );
 
     RETURN result;

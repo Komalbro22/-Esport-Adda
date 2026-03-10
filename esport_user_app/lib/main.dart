@@ -27,6 +27,11 @@ import 'features/support/support_home_screen.dart';
 import 'features/support/create_ticket_screen.dart';
 import 'features/support/support_chat_screen.dart';
 import 'features/dashboard/edit_profile_screen.dart';
+import 'features/profile/fair_play_leaderboard_screen.dart';
+import 'features/challenges/challenge_detail_screen.dart';
+import 'features/challenges/accept_challenge_screen.dart';
+import 'features/challenges/room_setup_screen.dart';
+import 'features/challenges/dispute_detail_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -119,7 +124,8 @@ final _router = GoRouter(
       builder: (context, state) {
         final id = state.pathParameters['id']!;
         final name = state.uri.queryParameters['name'] ?? 'Tournaments';
-        return TournamentListScreen(gameId: id, gameName: name);
+        final initialTab = int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+        return TournamentListScreen(gameId: id, gameName: name, initialTabIndex: initialTab);
       },
     ),
     GoRoute(
@@ -177,6 +183,26 @@ final _router = GoRouter(
     GoRoute(
       path: '/edit_profile',
       builder: (context, state) => const EditProfileScreen(),
+    ),
+    GoRoute(
+      path: '/fair_play_leaderboard',
+      builder: (context, state) => const FairPlayLeaderboardScreen(),
+    ),
+    GoRoute(
+      path: '/challenge_detail/:id',
+      builder: (context, state) => ChallengeDetailScreen(challengeId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/accept_challenge/:id',
+      builder: (context, state) => AcceptChallengeScreen(challengeId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/room_setup/:id',
+      builder: (context, state) => RoomSetupScreen(challengeId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/dispute_detail/:id',
+      builder: (context, state) => DisputeDetailScreen(challengeId: state.pathParameters['id']!),
     ),
   ],
 );

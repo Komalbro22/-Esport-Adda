@@ -4,6 +4,8 @@ import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import 'fair_play_score_logs_screen.dart';
+
 class UserDetailScreen extends StatefulWidget {
   final String userId;
   const UserDetailScreen({Key? key, required this.userId}) : super(key: key);
@@ -320,6 +322,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                     Text(_user!['name'] ?? 'User Name', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
                     Text('@${_user!['username']}', style: const TextStyle(color: StitchTheme.primary)),
                     Text(_user!['email'] ?? '', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+                    const SizedBox(height: 8),
+                    _buildFairScoreSection(),
                   ],
                 ),
               ),
@@ -426,6 +430,47 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           const SizedBox(height: 4),
           Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFairScoreSection() {
+    final int score = (_user!['fair_score'] as num?)?.toInt() ?? 100;
+    Color scoreColor;
+    String label;
+    if (score >= 90) {
+      scoreColor = Colors.greenAccent;
+      label = 'TRUSTED';
+    } else if (score >= 70) {
+      scoreColor = Colors.orangeAccent;
+      label = 'RISK';
+    } else {
+      scoreColor = Colors.redAccent;
+      label = 'DANGEROUS';
+    }
+
+    return GestureDetector(
+      onTap: () => context.push('/user_fair_play_logs/${widget.userId}?username=${_user!['username']}'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: scoreColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: scoreColor.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.shield_rounded, color: scoreColor, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              '$label: $score',
+              style: TextStyle(color: scoreColor, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.history_rounded, color: scoreColor.withOpacity(0.5), size: 12),
+          ],
+        ),
       ),
     );
   }

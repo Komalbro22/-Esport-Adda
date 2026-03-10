@@ -183,6 +183,7 @@ class _ProfileTabState extends State<ProfileTab> {
           style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
         ),
         const SizedBox(height: 12),
+        const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -194,6 +195,8 @@ class _ProfileTabState extends State<ProfileTab> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        _buildFairScoreBadge(_userData!['fair_score'] ?? 100),
         const SizedBox(height: 24),
         SizedBox(
           width: 200,
@@ -213,6 +216,53 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
+  Widget _buildFairScoreBadge(int score) {
+    Color color = Colors.greenAccent;
+    String label = 'TRUSTED';
+    IconData icon = Icons.verified_user_rounded;
+
+    if (score < 30) {
+      color = Colors.redAccent;
+      label = 'DANGEROUS';
+      icon = Icons.gpp_bad_rounded;
+    } else if (score < 60) {
+      color = Colors.orangeAccent;
+      label = 'RISK';
+      icon = Icons.warning_amber_rounded;
+    } else if (score < 80) {
+      color = Colors.blueAccent;
+      label = 'NORMAL';
+      icon = Icons.shield_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            'FAIR SCORE: $score',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          const SizedBox(width: 8),
+          Container(width: 1, height: 12, color: color.withOpacity(0.3)),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStats() {
     return Row(
       children: [
@@ -229,6 +279,7 @@ class _ProfileTabState extends State<ProfileTab> {
     return Column(
       children: [
         _buildMenuItem(Icons.sports_esports_outlined, 'My Matches', () => context.push('/my_matches')),
+        _buildMenuItem(Icons.workspace_premium_rounded, 'Fair Play Leaderboard', () => context.push('/fair_play_leaderboard')),
         _buildMenuItem(Icons.leaderboard_rounded, 'Global Leaderboard', () => context.push('/global_leaderboard')),
         _buildMenuItem(Icons.share_outlined, 'Refer & Earn', () => context.push('/referral')),
         _buildMenuItem(Icons.settings_outlined, 'Game Settings', () => context.push('/settings')),
