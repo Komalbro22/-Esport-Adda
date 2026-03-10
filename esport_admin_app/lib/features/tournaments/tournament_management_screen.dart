@@ -111,6 +111,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final totalPrizeCtrl = TextEditingController(text: source?['total_prize_pool']?.toString() ?? '0');
     final bannerCtrl = TextEditingController(text: isCopying ? (source?['banner_url'] ?? '') : (source?['banner_url'] ?? ''));
     final prizeDescCtrl = TextEditingController(text: source?['prize_description'] ?? '');
+    final rulesCtrl = TextEditingController(text: source?['rules'] ?? '');
+    final mapNameCtrl = TextEditingController(text: source?['map_name'] ?? '');
+    final modeCtrl = TextEditingController(text: source?['mode'] ?? '');
 
     String initialPrizeConfig = '';
     if (source?['rank_prizes'] != null) {
@@ -227,6 +230,12 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   ]),
                   const SizedBox(height: 12),
                   StitchInput(label: 'Total Prize Pool (₹)', controller: totalPrizeCtrl, keyboardType: TextInputType.number),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: StitchInput(label: 'Map Name', controller: mapNameCtrl, hintText: 'e.g. Erangel')),
+                    const SizedBox(width: 12),
+                    Expanded(child: StitchInput(label: 'Game Mode', controller: modeCtrl, hintText: 'e.g. TPP')),
+                  ]),
 
                   const SizedBox(height: 20),
                   const Text('SCHEDULE', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
@@ -293,7 +302,10 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     ],
                   ),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Description & Rules', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter description or rules...'),
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Description', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter tournament description...'),
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Rules', controller: rulesCtrl, maxLines: 4, hintText: 'Enter tournament rules...'),
                   const SizedBox(height: 12),
                   StitchInput(label: 'Prize Config (1=500, 2=200, 3=100)', controller: prizeConfigCtrl, maxLines: 2, hintText: '1=500, 2=200, 3=100'),
                   const SizedBox(height: 20),
@@ -343,6 +355,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             'start_time': dt.toIso8601String(),
             'banner_url': bannerCtrl.text.trim().isEmpty ? null : bannerCtrl.text.trim(),
             'prize_description': prizeDescCtrl.text.trim().isEmpty ? null : prizeDescCtrl.text.trim(),
+            'rules': rulesCtrl.text.trim().isEmpty ? null : rulesCtrl.text.trim(),
+            'map_name': mapNameCtrl.text.trim().isEmpty ? null : mapNameCtrl.text.trim(),
+            'mode': modeCtrl.text.trim().isEmpty ? null : modeCtrl.text.trim(),
             'rank_prizes': rankPrizes,
             'is_featured': isFeatured,
           };

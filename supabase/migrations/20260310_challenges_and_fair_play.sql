@@ -131,5 +131,5 @@ DO $$
 BEGIN
     ALTER TABLE public.wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
     ALTER TABLE public.wallet_transactions ADD CONSTRAINT wallet_transactions_type_check 
-    CHECK (type IN ('deposit', 'withdraw', 'tournament_entry', 'tournament_win', 'referral_bonus', 'challenge_entry', 'challenge_prize', 'challenge_refund', 'challenge_commission'));
+    CHECK (type IN ('deposit', 'withdraw', 'tournament_entry', 'tournament_win', 'referral_bonus', 'challenge_entry', 'challenge_prize', 'challenge_refund', 'challenge_commission', 'other'));
 END $$;

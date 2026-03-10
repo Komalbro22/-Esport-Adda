@@ -42,7 +42,7 @@ class _HomeTabState extends State<HomeTab> {
       if (user == null) return;
 
       final futures = await Future.wait([
-        _supabase.from('games').select('*').eq('is_active', true).order('created_at'),
+        _supabase.from('games').select('*').eq('is_active', true).order('sort_order', ascending: true),
         _supabase.from('user_wallets').select('deposit_wallet, winning_wallet').eq('user_id', user.id).single(),
         _supabase.from('app_settings').select().limit(1).maybeSingle(),
         _supabase.from('tournaments')

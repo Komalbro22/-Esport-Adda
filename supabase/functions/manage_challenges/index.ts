@@ -167,14 +167,19 @@ serve(async (req) => {
                         const commission = totalPool * (challenge.commission_percent / 100)
                         const prize = totalPool - commission
 
-                        await supabaseAdmin.rpc('adjust_wallet_balance', {
-                            user_id: winnerId,
-                            amount: prize,
-                            type: 'challenge_prize',
-                            ref_id: challenge_id
+                        const { error: prizeErr } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+                            p_user_id: winnerId,
+                            p_amount: prize,
+                            p_type: 'challenge_prize',
+                            p_ref_id: challenge_id
                         })
+                        if (prizeErr) {
+                            console.error('Prize Distribution Error:', prizeErr)
+                            throw new Error(`Failed to credit winner wallet: ${prizeErr.message}`)
+                        }
 
-                        await supabaseAdmin.from('challenges').update({ status: 'completed', winner_id: winnerId }).eq('id', challenge_id)
+                        const { error: completeErr } = await supabaseAdmin.from('challenges').update({ status: 'completed', winner_id: winnerId }).eq('id', challenge_id)
+                        if (completeErr) throw completeErr
 
                         // Fair Play Rewards for successful match (+2)
                         await supabaseAdmin.functions.invoke('manage_fair_play', {
@@ -285,39 +290,43 @@ serve(async (req) => {
                     }).eq('id', challenge_id)
 
                     // Pay Winner
-                    await supabaseAdmin.rpc('adjust_wallet_balance', {
-                        user_id: winner_id,
-                        amount: prizeAmount,
-                        type: 'challenge_prize',
-                        ref_id: challenge_id
+                    const { error: prizeErr } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+                        p_user_id: winner_id,
+                        p_amount: prizeAmount,
+                        p_type: 'challenge_prize',
+                        p_ref_id: challenge_id
                     })
+                    if (prizeErr) throw new Error(`Failed to credit winner: ${prizeErr.message}`)
 
                     // Commission Transaction
-                    await supabaseAdmin.from('wallet_transactions').insert({
-                        user_id: winner_id, // Associated with the winner for tracking
+                    const { error: commErr } = await supabaseAdmin.from('wallet_transactions').insert({
+                        user_id: winner_id,
                         amount: commissionAmount,
                         type: 'challenge_commission',
                         reference_id: challenge_id,
                         status: 'success'
                     })
+                    if (commErr) console.warn('Commission logging failed:', commErr)
 
                 } else if (resolution === 'refund') {
                     // Refund both players
                     await supabaseAdmin.from('challenges').update({ status: 'cancelled', result_locked: true }).eq('id', challenge_id)
 
-                    await supabaseAdmin.rpc('adjust_wallet_balance', {
-                        user_id: challenge.creator_id,
-                        amount: challenge.entry_fee,
-                        type: 'challenge_refund',
-                        ref_id: challenge_id
+                    const { error: ref1Err } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+                        p_user_id: challenge.creator_id,
+                        p_amount: challenge.entry_fee,
+                        p_type: 'challenge_refund',
+                        p_ref_id: challenge_id
                     })
+                    if (ref1Err) throw new Error(`Refund failed for creator: ${ref1Err.message}`)
 
-                    await supabaseAdmin.rpc('adjust_wallet_balance', {
-                        user_id: challenge.opponent_id,
-                        amount: challenge.entry_fee,
-                        type: 'challenge_refund',
-                        ref_id: challenge_id
+                    const { error: ref2Err } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+                        p_user_id: challenge.opponent_id,
+                        p_amount: challenge.entry_fee,
+                        p_type: 'challenge_refund',
+                        p_ref_id: challenge_id
                     })
+                    if (ref2Err) throw new Error(`Refund failed for opponent: ${ref2Err.message}`)
                 }
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }

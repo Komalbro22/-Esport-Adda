@@ -81,6 +81,10 @@ class _ProfileTabState extends State<ProfileTab> {
     if (_isLoading) return const Center(child: StitchLoading());
     if (_userData == null) return const Center(child: StitchError(message: 'Failed to load profile'));
 
+    final joinedDate = _userData!['created_at'] != null 
+        ? DateFormat('MMMM yyyy').format(DateTime.parse(_userData!['created_at']))
+        : 'Unknown';
+
     return RefreshIndicator(
       onRefresh: _fetchProfileData,
       color: StitchTheme.primary,
@@ -88,53 +92,232 @@ class _ProfileTabState extends State<ProfileTab> {
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
-            // Profile Header with Background
+            // 1. Profile Header with Curved Background
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
                 Container(
-                  height: 200,
+                  height: 140,
                   width: double.infinity,
                   decoration: const BoxDecoration(
-                    gradient: StitchTheme.primaryGradient,
-                  ),
-                  child: Opacity(
-                    opacity: 0.1,
-                    child: Icon(Icons.videogame_asset_rounded, size: 200, color: Colors.white),
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF00FBFF), Color(0xFF6E00FF)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(40)),
                   ),
                 ),
                 Positioned(
-                  bottom: -50,
+                  bottom: -60,
                   child: _buildAvatar(),
                 ),
               ],
             ),
             
-            const SizedBox(height: 60),
+            const SizedBox(height: 70),
             
-            _buildProfileInfo(),
+            // 2. Name and Info
+            Text(
+              _userData!['name'] ?? 'User Name',
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: -0.5),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '@${_userData!['username'] ?? 'username'}',
+              style: const TextStyle(color: Color(0xFF00FBFF), fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.calendar_today_rounded, size: 14, color: Colors.white54),
+                const SizedBox(width: 8),
+                Text(
+                  'Gamer since $joinedDate',
+                  style: const TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
             
+            // 3. Fair Score Badge
+            _buildFairScoreBadge(_userData!['fair_score'] ?? 100),
+            
+            const SizedBox(height: 16),
+            
+            // 4. Edit Profile Button
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    final result = await context.push('/edit_profile');
+                    if (result == true) {
+                      setState(() => _isLoading = true);
+                      _fetchProfileData();
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF00FBFF), width: 2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                  ),
+                  child: const Text(
+                    'EDIT PROFILE',
+                    style: TextStyle(color: Color(0xFF00FBFF), fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // 5. Stats Cards Row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _buildStatCard('Matches', _stats?['matches_played']?.toString() ?? '0', Icons.sports_esports),
+                  const SizedBox(width: 12),
+                  _buildStatCard('Wins', _stats?['total_wins']?.toString() ?? '0', Icons.emoji_events),
+                  const SizedBox(width: 12),
+                  _buildStatCard('Kills', _stats?['total_kills']?.toString() ?? '0', Icons.track_changes_rounded),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // 6. Menu List
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
-                  _buildStats(),
-                  const SizedBox(height: 32),
-                  _buildMenu(),
-                  const SizedBox(height: 40),
-                  StitchButton(
-                    text: 'LOGOUT',
-                    onPressed: () async {
-                      await _supabase.auth.signOut();
-                      if (mounted) context.go('/login');
-                    },
-                    backgroundColor: Colors.red.withOpacity(0.05),
-                    textColor: Colors.red,
-                  ),
-                  const SizedBox(height: 40),
+                  _buildMenuListItem(Icons.sports_esports, 'My Matches', () => context.push('/my_matches')),
+                  _buildMenuListItem(Icons.verified_rounded, 'Fair Play Leaderboard', () => context.push('/fair_play_leaderboard')),
+                  _buildMenuListItem(Icons.bar_chart_rounded, 'Global Leaderboard', () => context.push('/global_leaderboard')),
+                  _buildMenuListItem(Icons.share_rounded, 'Refer & Earn', () => context.push('/referral')),
+                  _buildMenuListItem(Icons.settings, 'Game Settings', () => context.push('/settings')),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Logout
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextButton(
+                onPressed: () async {
+                  await _supabase.auth.signOut();
+                  if (mounted) context.go('/login');
+                },
+                child: const Text('LOGOUT', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black,
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF00FBFF).withOpacity(0.5), blurRadius: 20, spreadRadius: 0),
+        ],
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black,
+        ),
+        child: CircleAvatar(
+          radius: 54,
+          backgroundColor: const Color(0xFF1B1B1B),
+          backgroundImage: _userData!['avatar_url'] != null 
+              ? NetworkImage(_userData!['avatar_url']) 
+              : null,
+          child: _userData!['avatar_url'] == null 
+              ? const Icon(Icons.person, size: 54, color: Colors.white24) 
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFairScoreBadge(int score) {
+    Color color = const Color(0xFF00E676);
+    String label = 'TRUSTED';
+    if (score < 40) {
+      color = Colors.redAccent;
+      label = 'RISK';
+    } else if (score < 80) {
+      color = Colors.orangeAccent;
+      label = 'FAIR';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: color.withOpacity(0.5), width: 2),
+        boxShadow: [
+          BoxShadow(color: color.withOpacity(0.1), blurRadius: 10, spreadRadius: 2),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_outline, color: color, size: 18),
+          const SizedBox(width: 10),
+          Text(
+            'FAIR SCORE: $score | $label',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111111),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1F26),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: const Color(0xFF00FBFF), size: 20),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w500)),
+                  Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -144,165 +327,33 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _buildAvatar() {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: StitchTheme.background, width: 6),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5)
-        ],
-      ),
-      child: CircleAvatar(
-        radius: 60,
-        backgroundColor: StitchTheme.surfaceHighlight,
-        backgroundImage: _userData!['avatar_url'] != null 
-            ? NetworkImage(_userData!['avatar_url']) 
-            : null,
-        child: _userData!['avatar_url'] == null 
-            ? const Icon(Icons.person, size: 60, color: StitchTheme.primary) 
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildProfileInfo() {
-    final joinedDate = _userData!['created_at'] != null 
-        ? DateFormat('MMMM yyyy').format(DateTime.parse(_userData!['created_at']))
-        : 'Unknown';
-
-    return Column(
-      children: [
-        Text(
-          _userData!['name'] ?? 'User Name',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: StitchTheme.textMain, letterSpacing: -0.5),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '@${_userData!['username'] ?? 'username'}',
-          style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1),
-        ),
-        const SizedBox(height: 12),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.calendar_today_rounded, size: 12, color: StitchTheme.textMuted.withOpacity(0.5)),
-            const SizedBox(width: 6),
-            Text(
-              'Gamer since $joinedDate',
-              style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildFairScoreBadge(_userData!['fair_score'] ?? 100),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: 200,
-          child: StitchButton(
-            text: 'EDIT PROFILE',
-            isSecondary: true,
-            onPressed: () async {
-              final result = await context.push('/edit_profile');
-              if (result == true) {
-                setState(() => _isLoading = true);
-                _fetchProfileData();
-              }
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFairScoreBadge(int score) {
-    Color color = Colors.greenAccent;
-    String label = 'TRUSTED';
-    IconData icon = Icons.verified_user_rounded;
-
-    if (score < 30) {
-      color = Colors.redAccent;
-      label = 'DANGEROUS';
-      icon = Icons.gpp_bad_rounded;
-    } else if (score < 60) {
-      color = Colors.orangeAccent;
-      label = 'RISK';
-      icon = Icons.warning_amber_rounded;
-    } else if (score < 80) {
-      color = Colors.blueAccent;
-      label = 'NORMAL';
-      icon = Icons.shield_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            'FAIR SCORE: $score',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-          const SizedBox(width: 8),
-          Container(width: 1, height: 12, color: color.withOpacity(0.3)),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 0.5),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Row(
-      children: [
-        Expanded(child: StitchStatCard(title: 'Matches', value: _stats?['matches_played']?.toString() ?? '0', icon: Icons.sports_esports)),
-        const SizedBox(width: 8),
-        Expanded(child: StitchStatCard(title: 'Wins', value: _stats?['total_wins']?.toString() ?? '0', color: StitchTheme.success, icon: Icons.emoji_events)),
-        const SizedBox(width: 8),
-        Expanded(child: StitchStatCard(title: 'Kills', value: _stats?['total_kills']?.toString() ?? '0', color: StitchTheme.accent, icon: Icons.my_location)),
-      ],
-    );
-  }
-
-  Widget _buildMenu() {
-    return Column(
-      children: [
-        _buildMenuItem(Icons.sports_esports_outlined, 'My Matches', () => context.push('/my_matches')),
-        _buildMenuItem(Icons.workspace_premium_rounded, 'Fair Play Leaderboard', () => context.push('/fair_play_leaderboard')),
-        _buildMenuItem(Icons.leaderboard_rounded, 'Global Leaderboard', () => context.push('/global_leaderboard')),
-        _buildMenuItem(Icons.share_outlined, 'Refer & Earn', () => context.push('/referral')),
-        _buildMenuItem(Icons.settings_outlined, 'Game Settings', () => context.push('/settings')),
-        _buildMenuItem(Icons.help_outline, 'Support', () => context.push('/support')),
-      ],
-    );
-  }
-
-  Widget _buildMenuItem(IconData icon, String title, VoidCallback onTap) {
+  Widget _buildMenuListItem(IconData icon, String title, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: StitchCard(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            children: [
-              Icon(icon, color: StitchTheme.primary),
-              const SizedBox(width: 16),
-              Text(title, style: const TextStyle(fontSize: 16, color: StitchTheme.textMain, fontWeight: FontWeight.w500)),
-              const Spacer(),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: StitchTheme.textMuted),
-            ],
+      child: Material(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: const Color(0xFF00FBFF), size: 24),
+                const SizedBox(width: 16),
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                const Icon(Icons.chevron_right, color: Colors.white30),
+              ],
+            ),
           ),
         ),
       ),

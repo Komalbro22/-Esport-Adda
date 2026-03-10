@@ -183,14 +183,27 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                               const SizedBox(height: 32),
                             ],
 
-                            // Circular Info Pills (Mode, Entry Fee, Per Kill)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _CircularPill(icon: Icons.groups_rounded, label: 'Mode', value: t['tournament_type'].toString()),
-                                _CircularPill(icon: Icons.payments_rounded, label: 'Entry Fee', value: '₹${t['entry_fee']}'),
-                                _CircularPill(icon: Icons.radar_rounded, label: 'Per Kill', value: '₹${t['per_kill_reward']}'),
-                              ],
+                            // Circular Info Pills (Mode, Entry Fee, Per Kill, Map)
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _CircularPill(icon: Icons.groups_rounded, label: 'Type', value: t['tournament_type'].toString()),
+                                  const SizedBox(width: 16),
+                                  _CircularPill(icon: Icons.payments_rounded, label: 'Entry', value: '₹${t['entry_fee']}'),
+                                  const SizedBox(width: 16),
+                                  _CircularPill(icon: Icons.radar_rounded, label: 'Per Kill', value: '₹${t['per_kill_reward']}'),
+                                  if (t['map_name'] != null) ...[
+                                    const SizedBox(width: 16),
+                                    _CircularPill(icon: Icons.map_rounded, label: 'Map', value: t['map_name'].toString()),
+                                  ],
+                                  if (t['mode'] != null) ...[
+                                    const SizedBox(width: 16),
+                                    _CircularPill(icon: Icons.sports_rounded, label: 'Mode', value: t['mode'].toString()),
+                                  ],
+                                ],
+                              ),
                             ),
                             
                             const SizedBox(height: 32),
@@ -253,13 +266,23 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                     // Rules & Regulations
                     Row(
                       children: [
+                        const Icon(Icons.description_rounded, color: Color(0xFF94A3B8), size: 18),
+                        const SizedBox(width: 8),
+                        const Text('Description', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(t['prize_description'] ?? 'No description available.', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.5)),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
                         const Icon(Icons.gavel_rounded, color: Color(0xFF94A3B8), size: 18),
                         const SizedBox(width: 8),
                         const Text('Rules & Regulations', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _RulesList(description: t['description'] ?? 'No rules description available.'),
+                    _RulesList(description: t['rules'] ?? 'No rules description available.'),
                     const SizedBox(height: 32),
 
                     const SizedBox(height: 32),

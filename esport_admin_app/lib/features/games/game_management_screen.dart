@@ -26,7 +26,7 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
 
   Future<void> _fetchGames() async {
     try {
-      final data = await _supabase.from('games').select('*').order('created_at');
+      final data = await _supabase.from('games').select('*').order('sort_order', ascending: true);
       if (mounted) {
         setState(() {
           _games = List<Map<String, dynamic>>.from(data);
@@ -42,6 +42,7 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
     final nameCtrl = TextEditingController(text: game?['name']);
     final descCtrl = TextEditingController(text: game?['description']);
     final logoCtrl = TextEditingController(text: game?['logo_url']);
+    final sortCtrl = TextEditingController(text: (game?['sort_order'] ?? 0).toString());
     bool isActive = game?['is_active'] ?? true;
     bool challengeEnabled = game?['challenge_enabled'] ?? false;
     final commissionCtrl = TextEditingController(text: (game?['challenge_commission_percent'] ?? 10).toString());
@@ -98,6 +99,8 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
               StitchInput(label: 'Game Name', controller: nameCtrl),
               const SizedBox(height: 12),
               StitchInput(label: 'Description', controller: descCtrl),
+              const SizedBox(height: 12),
+              StitchInput(label: 'Sort Order (lower entries show first)', controller: sortCtrl, keyboardType: TextInputType.number),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -181,6 +184,7 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
           'challenge_commission_percent': double.tryParse(commissionCtrl.text) ?? 10.0,
           'challenge_min_entry_fee': double.tryParse(minEntryCtrl.text) ?? 10.0,
           'challenge_modes': allowedModes,
+          'sort_order': int.tryParse(sortCtrl.text) ?? 0,
         };
 
         try {
