@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class UserManagementScreen extends StatefulWidget {
-  const UserManagementScreen({Key? key}) : super(key: key);
+  const UserManagementScreen({super.key});
 
   @override
   State<UserManagementScreen> createState() => _UserManagementScreenState();
@@ -14,14 +14,37 @@ class UserManagementScreen extends StatefulWidget {
 class _UserManagementScreenState extends State<UserManagementScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
-  List<Map<String, dynamic>> _users = [];
+  bool _isMoreLoading = false;
+  bool _hasMore = true;
   String _searchQuery = '';
   String _filterStatus = 'all'; // all, active, blocked
+  List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _filteredUsers = [];
+  static const int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
+  
+  // Debounce search
+  final ValueNotifier<bool> _isFilteringNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _fetchUsers();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isMoreLoading && _hasMore) {
+        _loadMoreUsers();
+      }
+    }
   }
 
   Future<void> _fetchUsers() async {
@@ -29,11 +52,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       final data = await _supabase
           .from('users')
           .select('*, user_wallets(deposit_wallet, winning_wallet, total_kills, total_wins, matches_played)')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(0, _pageSize - 1);
       
       if (mounted) {
         setState(() {
           _users = List<Map<String, dynamic>>.from(data);
+          _applyFilters(); // Apply filters after fetch
+          _hasMore = _users.length == _pageSize;
           _isLoading = false;
         });
       }
@@ -42,8 +68,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredUsers {
-    return _users.where((user) {
+  void _applyFilters() {
+    _filteredUsers = _users.where((user) {
       final matchesSearch = _searchQuery.isEmpty || 
           (user['username']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
           (user['email']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
@@ -56,6 +82,32 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       return matchesSearch && matchesFilter;
     }).toList();
   }
+
+  Future<void> _loadMoreUsers() async {
+    if (_isMoreLoading || !_hasMore) return;
+    setState(() => _isMoreLoading = true);
+    try {
+      final data = await _supabase
+          .from('users')
+          .select('*, user_wallets(deposit_wallet, winning_wallet, total_kills, total_wins, matches_played)')
+          .order('created_at', ascending: false)
+          .range(_users.length, _users.length + _pageSize - 1);
+      
+      if (mounted) {
+        setState(() {
+          final newUsers = List<Map<String, dynamic>>.from(data);
+          _users.addAll(newUsers);
+          _applyFilters(); // Apply filters after fetch
+          _hasMore = newUsers.length == _pageSize;
+          _isMoreLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isMoreLoading = false);
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +124,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 : _filteredUsers.isEmpty 
                     ? const Center(child: Text('No users found', style: TextStyle(color: StitchTheme.textMuted)))
                     : ListView.separated(
+                        controller: _scrollController,
                         padding: const EdgeInsets.all(16),
-                        itemCount: _filteredUsers.length,
+                        itemCount: _filteredUsers.length + (_hasMore ? 1 : 0),
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
+                          if (index == _filteredUsers.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(child: StitchLoading()),
+                            );
+                          }
                           final user = _filteredUsers[index];
                           final wallet = user['user_wallets'];
                           final totalBalance = (wallet?['deposit_wallet'] ?? 0) + (wallet?['winning_wallet'] ?? 0);
@@ -139,7 +198,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       child: Column(
         children: [
           TextField(
-            onChanged: (v) => setState(() => _searchQuery = v),
+            onChanged: (v) {
+              setState(() => _searchQuery = v);
+              _applyFilters();
+            },
             decoration: InputDecoration(
               hintText: 'Search by username, email or ID...',
               prefixIcon: const Icon(Icons.search, color: StitchTheme.textMuted),
@@ -166,7 +228,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _filterStatus == value;
     return GestureDetector(
-      onTap: () => setState(() => _filterStatus = value),
+      onTap: () {
+        setState(() => _filterStatus = value);
+        _applyFilters();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(

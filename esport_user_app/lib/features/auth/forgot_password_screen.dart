@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'otp_verification_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -13,21 +14,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
 
-  Future<void> _resetPassword() async {
-    if (_emailController.text.trim().isEmpty) {
-      StitchSnackbar.showError(context, 'Please enter your email');
+  Future<void> _sendRecoveryOTP() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      StitchSnackbar.showError(context, 'Please enter a valid email address');
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      await AuthService.resetPassword(_emailController.text.trim());
+      // Supabase signInWithOtp works for password recovery if type is set in verifyOTP
+      // or we can use resetPasswordForEmail which sends an OTP if configured
+      await AuthService.signInWithOtp(email);
+      
       if (mounted) {
-        StitchSnackbar.showSuccess(context, 'Password reset link sent to your email');
-        context.pop();
+        context.push('/otp', extra: {
+          'email': email,
+          'reason': OTPReason.reset,
+          'signupData': null,
+        });
       }
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, e.toString());
+      if (mounted) StitchSnackbar.showError(context, 'Failed to send recovery code');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -56,7 +64,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Enter your registered email address and we will send you a link to reset your password.',
+              'Enter your registered email address and we will send you a 6-digit code to reset your password.',
               style: TextStyle(color: StitchTheme.textMuted),
             ),
             const SizedBox(height: 32),
@@ -68,14 +76,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     controller: _emailController,
                     prefixIcon: const Icon(Icons.email_outlined),
                     keyboardType: TextInputType.emailAddress,
+                    hintText: 'Enter your email',
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
                     child: StitchButton(
-                      text: 'Send Reset Link',
+                      text: 'Send Recovery Code',
                       isLoading: _isLoading,
-                      onPressed: _resetPassword,
+                      onPressed: _sendRecoveryOTP,
                     ),
                   ),
                 ],

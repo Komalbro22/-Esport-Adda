@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -12,37 +13,26 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   bool _isLoading = false;
+  Future<void> _sendOTP() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      StitchSnackbar.showError(context, 'Please enter a valid email address');
+      return;
+    }
 
-  Future<void> _login() async {
     setState(() => _isLoading = true);
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      
-      if (response.user != null) {
-        // Check if user is blocked or has wrong role before proceeding
-        final userData = await Supabase.instance.client
-          .from('users')
-          .select('is_blocked, role')
-          .eq('id', response.user!.id)
-          .single();
-          
-        if (userData['is_blocked'] == true) {
-          await Supabase.instance.client.auth.signOut();
-          if(mounted) StitchSnackbar.showError(context, 'Account is blocked. Contact support.');
-          return;
-        }
-
-        if (mounted) context.go('/dashboard');
+      await AuthService.signInWithOtp(email);
+      if (mounted) {
+        context.push('/otp', extra: {
+          'email': email,
+          'reason': OTPReason.login,
+          'signupData': null,
+        });
       }
-    } on AuthException catch (e) {
-      if (mounted) StitchSnackbar.showError(context, e.message);
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, 'An unexpected error occurred');
+      if (mounted) StitchSnackbar.showError(context, 'Failed to send OTP. Please try again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -69,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Enter your details to login.',
+                'Enter your email to receive an OTP.',
                 style: TextStyle(color: StitchTheme.textMuted),
               ),
               const SizedBox(height: 48),
@@ -78,32 +68,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     StitchInput(
-                      label: 'Email',
+                      label: 'Email Address',
                       controller: _emailController,
                       prefixIcon: const Icon(Icons.email_outlined),
                       keyboardType: TextInputType.emailAddress,
+                      hintText: 'Enter your registered email',
                     ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Password',
-                      controller: _passwordController,
-                      isPassword: true,
-                      prefixIcon: const Icon(Icons.lock_outline),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => context.push('/forgot-password'),
-                        child: const Text('Forgot Password?', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: StitchButton(
-                        text: 'Login',
+                        text: 'Send OTP',
                         isLoading: _isLoading,
-                        onPressed: _login,
+                        onPressed: _sendOTP,
                       ),
                     ),
                   ],

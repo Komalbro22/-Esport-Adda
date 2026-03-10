@@ -19,6 +19,27 @@ class AuthService {
     );
   }
 
+  /// Sends a 6-digit OTP to the user's email.
+  static Future<void> signInWithOtp(String email) async {
+    await _client.auth.signInWithOtp(
+      email: email,
+      shouldCreateUser: true, // Allow signup via OTP
+    );
+  }
+
+  /// Verifies the OTP sent to the user's email.
+  static Future<void> verifyOTP({
+    required String email,
+    required String token,
+    required OtpType type,
+  }) async {
+    await _client.auth.verifyOTP(
+      email: email,
+      token: token,
+      type: type,
+    );
+  }
+
   /// Logs a user activity.
   static Future<void> logActivity({
     required String userId,

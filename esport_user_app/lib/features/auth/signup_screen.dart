@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'otp_verification_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -14,68 +15,27 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _referralController = TextEditingController();
-  
   bool _isLoading = false;
-
-  Future<void> _signup() async {
+  Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
     
     setState(() => _isLoading = true);
     try {
-      // Create user
-      final response = await Supabase.instance.client.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-        data: {
-          'name': _nameController.text.trim(),
-          'role': 'player',
-        },
-      );
+      final email = _emailController.text.trim();
+      await AuthService.signInWithOtp(email);
       
-      if (response.user != null) {
-        // Wait briefly for the auth trigger to create the public.users record
-        await Future.delayed(const Duration(milliseconds: 1000));
-        
-        // Generate a random referral code
-        final userCode = 'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
-
-        await Supabase.instance.client.from('users').update({
-          'username': _usernameController.text.trim(),
-          'phone': _phoneController.text.trim(),
-          'referral_code': userCode,
-        }).eq('id', response.user!.id);
-
-        // Apply referral if given (Edge Function)
-        final refCode = _referralController.text.trim();
-        if (refCode.isNotEmpty) {
-           await Supabase.instance.client.functions.invoke(
-             'apply_referral_bonus',
-             body: {
-               'referral_code': refCode,
-               'new_user_id': response.user!.id
-             },
-             headers: {
-               'Authorization': 'Bearer ${response.session?.accessToken ?? ''}',
-               'apikey': SupabaseConfig.anonKey,
-             },
-           );
-        }
-
-        if (mounted) {
-          StitchSnackbar.showSuccess(context, 'Account created successfully!');
-          context.go('/dashboard');
-        }
+      if (mounted) {
+        context.push('/otp', extra: {
+          'email': email,
+          'reason': OTPReason.signup,
+          'signupData': null, // We'll collect profile data AFTER verification as per user request
+        });
       }
     } on AuthException catch (e) {
       if (mounted) StitchSnackbar.showError(context, e.message);
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, 'Failed to create account: $e');
+      if (mounted) StitchSnackbar.showError(context, 'Failed to send verification code');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -116,61 +76,26 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: Column(
                   children: [
                     StitchInput(
-                      label: 'Full Name',
-                      controller: _nameController,
-                      prefixIcon: const Icon(Icons.person_outline),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Username',
-                      controller: _usernameController,
-                      prefixIcon: const Icon(Icons.alternate_email),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Phone Number',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      prefixIcon: const Icon(Icons.phone_outlined),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Email',
+                      label: 'Email Address',
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: const Icon(Icons.email_outlined),
+                      hintText: 'Enter your email',
                       validator: (val) => val == null || !val.contains('@') ? 'Invalid email' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Password',
-                      controller: _passwordController,
-                      isPassword: true,
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      validator: (val) => val == null || val.length < 6 ? 'Min 6 chars' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    StitchInput(
-                      label: 'Referral Code (Optional)',
-                      controller: _referralController,
-                      prefixIcon: const Icon(Icons.card_giftcard_outlined),
                     ),
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: StitchButton(
-                        text: 'Sign Up',
+                        text: 'Send Verification Code',
                         isLoading: _isLoading,
-                        onPressed: _signup,
+                        onPressed: _sendOTP,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32), // bottom padding
+              const SizedBox(height: 32),
             ],
           ),
         ),

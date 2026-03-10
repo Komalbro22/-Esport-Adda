@@ -6,7 +6,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeTab extends StatefulWidget {
-  const HomeTab({Key? key}) : super(key: key);
+  const HomeTab({super.key});
 
   @override
   State<HomeTab> createState() => _HomeTabState();
@@ -17,7 +17,6 @@ class _HomeTabState extends State<HomeTab> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _games = [];
   List<Map<String, dynamic>> _featuredTournaments = [];
-  Map<String, dynamic>? _appSettings;
   
   // Performance: Using ValueNotifier for granular updates
   final ValueNotifier<Map<String, dynamic>?> _walletStatsNotifier = ValueNotifier<Map<String, dynamic>?>(null);
@@ -57,7 +56,7 @@ class _HomeTabState extends State<HomeTab> {
       if (mounted) {
         setState(() {
           _games = List<Map<String, dynamic>>.from(futures[0] as List);
-          _appSettings = futures[2] as Map<String, dynamic>?;
+          // _appSettings = futures[2] as Map<String, dynamic>?; // Removed unused _appSettings
           _featuredTournaments = List<Map<String, dynamic>>.from(futures[3] as List);
           _isLoading = false;
         });
@@ -132,84 +131,89 @@ class _HomeTabState extends State<HomeTab> {
         child: RefreshIndicator(
           onRefresh: _fetchData,
           color: StitchTheme.primary,
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Custom Header
-                ValueListenableBuilder<Map<String, dynamic>?>(
-                  valueListenable: _walletStatsNotifier,
-                  builder: (context, stats, _) {
-                    final balance = ((stats?['deposit_wallet'] ?? 0) + (stats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
-                    return _buildHeader(balance);
-                  },
-                ),
-                
-                const SizedBox(height: 32),
-                
-                // Featured Tournament Section
-                if (_featuredTournaments.isNotEmpty) ...[
-                  const Text(
-                    'Featured Tournament',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: StitchTheme.textMain,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 190,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _featuredTournaments.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 16),
-                      itemBuilder: (context, index) {
-                        return _buildFeaturedCard(_featuredTournaments[index]);
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Custom Header
+                    ValueListenableBuilder<Map<String, dynamic>?>(
+                      valueListenable: _walletStatsNotifier,
+                      builder: (context, stats, _) {
+                        final balance = ((stats?['deposit_wallet'] ?? 0) + (stats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
+                        return _buildHeader(balance);
                       },
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-                
-                const Text(
-                  'Explore Games',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: StitchTheme.textMain,
-                    letterSpacing: -0.5,
-                  ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Featured Tournament Section
+                    if (_featuredTournaments.isNotEmpty) ...[
+                      const Text(
+                        'Featured Tournament',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: StitchTheme.textMain,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 190,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _featuredTournaments.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 16),
+                          itemBuilder: (context, index) {
+                            return _buildFeaturedCard(_featuredTournaments[index]);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                    
+                    const Text(
+                      'Explore Games',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: StitchTheme.textMain,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ]),
                 ),
-                const SizedBox(height: 20),
-                
-                // Games Grid
-                if (_games.isEmpty)
-                  _buildEmptyState()
-                else 
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+              ),
+              
+              // Games Grid using SliverGrid for optimization
+              if (_games.isEmpty)
+                SliverToBoxAdapter(child: _buildEmptyState())
+              else 
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverGrid(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.9,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                     ),
-                    itemCount: _games.length,
-                    itemBuilder: (context, index) {
-                      return _buildGameCard(_games[index]);
-                    },
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return _buildGameCard(_games[index]);
+                      },
+                      childCount: _games.length,
+                    ),
                   ),
-                                                      
-                const SizedBox(height: 100),
-              ],
-            ),
+                ),
+              
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
           ),
         ),
       ),
@@ -217,7 +221,6 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildHeader(String balance) {
-    final user = _supabase.auth.currentUser;
     return Row(
       children: [
         // Profile Avatar
@@ -251,7 +254,7 @@ class _HomeTabState extends State<HomeTab> {
       decoration: BoxDecoration(
         color: StitchTheme.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: IconButton(
         icon: const Icon(Icons.notifications_rounded, color: Color(0xFF94A3B8), size: 22),
@@ -269,7 +272,7 @@ class _HomeTabState extends State<HomeTab> {
         decoration: BoxDecoration(
           color: StitchTheme.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
+          border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.5), width: 1.5),
         ),
         child: Row(
           children: [
@@ -285,124 +288,6 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _buildNotificationIcon() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase
-          .from('notifications')
-          .stream(primaryKey: ['id'])
-          .eq('user_id', _supabase.auth.currentUser!.id)
-          .order('created_at', ascending: false),
-      builder: (context, snapshot) {
-        int unreadCount = snapshot.data?.where((n) => n['is_read'] != true).length ?? 0;
-        return IconButton(
-          icon: Stack(
-            children: [
-              const Icon(Icons.notifications_none_rounded, size: 28),
-              if (unreadCount > 0)
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    height: 14,
-                    width: 14,
-                    decoration: BoxDecoration(
-                      color: StitchTheme.error,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: StitchTheme.background, width: 2),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          onPressed: () => context.push('/notifications'),
-        );
-      },
-    );
-  }
-
-  Widget _buildWalletChip(String balance) {
-    return GestureDetector(
-      onTap: () => context.push('/wallet'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.account_balance_wallet_rounded, color: StitchTheme.primary, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              '₹$balance',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeroBanner() {
-    return Container(
-      height: 180,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [
-            StitchTheme.primary.withOpacity(0.2),
-            StitchTheme.secondary.withOpacity(0.2),
-          ],
-        ),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: Opacity(
-              opacity: 0.3,
-              child: Icon(Icons.emoji_events_rounded, size: 180, color: StitchTheme.primary),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: StitchTheme.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'MEGA EVENT',
-                    style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Daily Showdown',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Join tournaments & win big prizes!',
-                  style: TextStyle(color: StitchTheme.textMuted.withOpacity(0.8), fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn().scale(delay: 200.ms);
-  }
 
   Widget _buildFeaturedCard(Map<String, dynamic> t) {
     final double progress = (t['joined_slots'] ?? 0) / (t['total_slots'] ?? 1);
@@ -413,7 +298,7 @@ class _HomeTabState extends State<HomeTab> {
         width: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
+          border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.5), width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -438,8 +323,8 @@ class _HomeTabState extends State<HomeTab> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.1),
-                    Colors.black.withOpacity(0.9),
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.3),
                   ],
                 ),
               ),
@@ -497,7 +382,7 @@ class _HomeTabState extends State<HomeTab> {
                       height: 4,
                       child: LinearProgressIndicator(
                         value: progress,
-                        backgroundColor: Colors.white.withOpacity(0.1),
+                        backgroundColor: Colors.white.withValues(alpha: 0.1),
                         valueColor: const AlwaysStoppedAnimation<Color>(StitchTheme.primary),
                       ),
                     ),
@@ -543,7 +428,7 @@ class _HomeTabState extends State<HomeTab> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
                 ),
               ),
             ),
@@ -562,7 +447,7 @@ class _HomeTabState extends State<HomeTab> {
                     color: Colors.deepPurpleAccent,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
-                      BoxShadow(color: Colors.deepPurpleAccent.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2)),
+                      BoxShadow(color: Colors.deepPurpleAccent.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
                   ),
                   child: Row(
@@ -592,7 +477,7 @@ class _HomeTabState extends State<HomeTab> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.5), size: 12),
+                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.5), size: 12),
               ],
             ),
           ),

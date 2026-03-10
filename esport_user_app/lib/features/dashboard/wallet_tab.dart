@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
-import 'package:intl/intl.dart';
-import 'dart:async';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 class WalletTab extends StatefulWidget {
-  const WalletTab({Key? key}) : super(key: key);
+  const WalletTab({super.key});
 
   @override
   State<WalletTab> createState() => _WalletTabState();
@@ -320,7 +320,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: StitchTheme.primary.withOpacity(0.3),
+                  color: StitchTheme.primary.withValues(alpha: 0.2),
                   blurRadius: 30,
                   offset: const Offset(0, 10),
                 )
@@ -341,7 +341,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: const Row(
@@ -410,13 +410,13 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
             decoration: BoxDecoration(
               color: StitchTheme.surfaceHighlight,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.05)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.1), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: StitchTheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
                   child: const Icon(Icons.support_agent_rounded, color: StitchTheme.primary),
                 ),
                 const SizedBox(width: 16),
@@ -570,12 +570,12 @@ class _BalanceSubCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: StitchTheme.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: isHighlight ? StitchTheme.success : StitchTheme.textMuted.withOpacity(0.5), size: 20),
+          Icon(icon, color: isHighlight ? StitchTheme.success : StitchTheme.textMuted.withValues(alpha: 0.5), size: 20),
           const SizedBox(height: 16),
           Text(title, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
           const SizedBox(height: 4),

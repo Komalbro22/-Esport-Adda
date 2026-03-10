@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ChallengeDetailScreen extends StatefulWidget {
   final String challengeId;
@@ -35,7 +36,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
   Future<void> _loadChallenge() async {
     try {
       final data = await _supabase.from('challenges')
-          .select('*, creator:users!creator_id(username, fair_score), opponent:users!opponent_id(username, fair_score), games(name)')
+          .select('*, creator:users!creator_id(username, fair_score, avatar_url), opponent:users!opponent_id(username, fair_score, avatar_url), games(name, logo_url)')
           .eq('id', widget.challengeId)
           .single();
       if (mounted) {
@@ -112,7 +113,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildPlayerInfo(_challenge!['creator']['username'], 'Creator'),
+              _buildPlayerInfo(_challenge!['creator']['username'], 'Creator', _challenge!['creator']['avatar_url']),
               Column(
                 children: [
                    const Text('VS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.deepPurpleAccent, fontSize: 24, letterSpacing: 2)),
@@ -124,7 +125,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                      ),
                 ],
               ),
-              _buildPlayerInfo(_challenge!['opponent']?['username'] ?? 'Waiting...', 'Opponent'),
+              _buildPlayerInfo(_challenge!['opponent']?['username'] ?? 'Waiting...', 'Opponent', _challenge!['opponent']?['avatar_url']),
             ],
           ),
           const SizedBox(height: 24),
@@ -136,15 +137,34 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
               _buildMiniStat('Game', _challenge!['games']['name'].toString().toUpperCase()),
             ],
           ),
+          if (_challenge!['games']?['logo_url'] != null) ...[
+            const SizedBox(height: 24),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CachedNetworkImage(
+                imageUrl: _challenge!['games']['logo_url'],
+                height: 120,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                color: Colors.black.withValues(alpha: 0.3),
+                colorBlendMode: BlendMode.darken,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPlayerInfo(String name, String label) {
+  Widget _buildPlayerInfo(String name, String label, String? avatarUrl) {
     return Column(
       children: [
-        CircleAvatar(radius: 24, backgroundColor: Colors.white10, child: Text(name[0].toUpperCase())),
+        CircleAvatar(
+          radius: 24, 
+          backgroundColor: Colors.white10, 
+          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
+          child: avatarUrl == null || avatarUrl.isEmpty ? Text(name[0].toUpperCase()) : null,
+        ),
         const SizedBox(height: 8),
         Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
         Text(label, style: TextStyle(color: StitchTheme.textMuted, fontSize: 10)),

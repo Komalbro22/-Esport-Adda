@@ -6,9 +6,10 @@ import 'features/notifications/notification_service.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
+import 'features/auth/otp_verification_screen.dart';
+import 'features/auth/profile_completion_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/forgot_password_screen.dart';
-import 'features/auth/reset_password_screen.dart';
 import 'features/auth/reset_password_screen.dart';
 import 'features/profile/legal_documents_screen.dart';
 import 'features/auth/signup_screen.dart';
@@ -116,6 +117,17 @@ final _router = GoRouter(
       builder: (context, state) => const ResetPasswordScreen(),
     ),
     GoRoute(
+      path: '/otp',
+      builder: (context, state) {
+        final extras = state.extra as Map<String, dynamic>;
+        return OTPVerificationScreen(
+          email: extras['email'] as String,
+          reason: extras['reason'] as OTPReason,
+          signupData: extras['signupData'] as Map<String, dynamic>?,
+        );
+      },
+    ),
+    GoRoute(
       path: '/dashboard',
       builder: (context, state) => const DashboardScreen(),
     ),
@@ -203,6 +215,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/dispute_detail/:id',
       builder: (context, state) => DisputeDetailScreen(challengeId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/complete-profile',
+      builder: (context, state) => const ProfileCompletionScreen(),
     ),
   ],
 );

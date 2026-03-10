@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -12,6 +13,22 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
+  String _version = "Loading...";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = "${packageInfo.version}+${packageInfo.buildNumber}";
+      });
+    }
+  }
 
   Future<void> _showChangePasswordDialog() async {
     final passController = TextEditingController();
@@ -148,10 +165,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 40),
-          const Center(
+          Center(
             child: Text(
-              'App Version 1.0.0',
-              style: TextStyle(color: StitchTheme.textMuted, fontSize: 12),
+              'App Version $_version',
+              style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12),
             ),
           ),
         ],

@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:intl/intl.dart';
 
 class WithdrawManagementScreen extends StatefulWidget {
   final bool isTab;
-  const WithdrawManagementScreen({Key? key, this.isTab = false}) : super(key: key);
+  const WithdrawManagementScreen({super.key, this.isTab = false});
 
   @override
   State<WithdrawManagementScreen> createState() => _WithdrawManagementScreenState();
@@ -16,13 +14,32 @@ class WithdrawManagementScreen extends StatefulWidget {
 
 class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
   final _supabase = Supabase.instance.client;
-  bool _isLoading = true;
   List<Map<String, dynamic>> _requests = [];
+  bool _isLoading = true;
+  bool _isMoreLoading = false;
+  bool _hasMore = true;
+  static const int _pageSize = 15;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _fetchRequests();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isMoreLoading && _hasMore) {
+        _loadMoreRequests();
+      }
+    }
   }
 
   Future<void> _fetchRequests() async {
@@ -30,15 +47,39 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
       final data = await _supabase
           .from('withdraw_requests')
           .select('*, users(name, username)')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(0, _pageSize - 1);
       if (mounted) {
         setState(() {
           _requests = List<Map<String, dynamic>>.from(data);
+          _hasMore = _requests.length == _pageSize;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMoreRequests() async {
+    if (_isMoreLoading || !_hasMore) return;
+    setState(() => _isMoreLoading = true);
+    try {
+      final data = await _supabase
+          .from('withdraw_requests')
+          .select('*, users(name, username)')
+          .order('created_at', ascending: false)
+          .range(_requests.length, _requests.length + _pageSize - 1);
+      if (mounted) {
+        setState(() {
+          final newItems = List<Map<String, dynamic>>.from(data);
+          _requests.addAll(newItems);
+          _hasMore = newItems.length == _pageSize;
+          _isMoreLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isMoreLoading = false);
     }
   }
 
@@ -85,10 +126,17 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
               color: StitchTheme.primary,
               backgroundColor: StitchTheme.surface,
               child: ListView.separated(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: _requests.length,
+                itemCount: _requests.length + (_hasMore ? 1 : 0),
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
+                  if (index == _requests.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: StitchLoading()),
+                    );
+                  }
                   final req = _requests[index];
                   final isPending = req['status'] == 'pending';
                   

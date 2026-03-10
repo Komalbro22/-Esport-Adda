@@ -90,7 +90,7 @@ class _ChallengeListViewState extends State<ChallengeListView> {
       // Note: No spaces in select string to avoid potential PostgREST parsing issues
       // Build query with safe join syntax to fix NoSuchMethodError
       // and avoid previous 400 Bad Request error.
-      const selectStr = '*,creator:users!creator_id(username),opponent:users!opponent_id(username),games(name,logo_url)';
+      const selectStr = '*,creator:users!creator_id(username,avatar_url,fair_score),opponent:users!opponent_id(username,avatar_url,fair_score),games(name,logo_url)';
       
       var query = _supabase.from('challenges').select(selectStr).eq('game_id', widget.gameId);
 
@@ -300,7 +300,7 @@ class _ChallengeListViewState extends State<ChallengeListView> {
           children: [
             Row(
               children: [
-                _buildAvatar(),
+                _buildAvatar(c['creator']?['avatar_url']),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -334,6 +334,23 @@ class _ChallengeListViewState extends State<ChallengeListView> {
               ],
             ),
             const SizedBox(height: 20),
+            if (c['games']?['logo_url'] != null)
+              Container(
+                height: 80,
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  image: DecorationImage(
+                    image: CachedNetworkImageProvider(c['games']['logo_url']),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
+                  ),
+                ),
+                child: const Center(
+                  child: Icon(Icons.play_circle_fill_rounded, color: Colors.white54, size: 32),
+                ),
+              ),
             Row(
               children: [
                 _buildTag(Icons.groups_rounded, 'Mode: ${c['mode']}', iconWidget: c['games']?['logo_url'] != null ? ClipRRect(borderRadius: BorderRadius.circular(4), child: CachedNetworkImage(imageUrl: c['games']?['logo_url'], width: 14, height: 14, fit: BoxFit.cover)) : null),
@@ -370,7 +387,7 @@ class _ChallengeListViewState extends State<ChallengeListView> {
     );
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar(String? url) {
     return Container(
       width: 50,
       height: 50,
@@ -380,8 +397,15 @@ class _ChallengeListViewState extends State<ChallengeListView> {
       ),
       child: ClipOval(
         child: Container(
-          color: Colors.white.withOpacity(0.05),
-          child: const Icon(Icons.person_outline_rounded, color: Colors.deepPurpleAccent),
+          color: Colors.black26,
+          child: url != null && url.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => const Icon(Icons.person, color: Colors.white24),
+                  errorWidget: (context, url, error) => const Icon(Icons.person_outline_rounded, color: Colors.deepPurpleAccent),
+                )
+              : const Icon(Icons.person_outline_rounded, color: Colors.deepPurpleAccent),
         ),
       ),
     );
@@ -531,7 +555,7 @@ class _ChallengeListViewState extends State<ChallengeListView> {
   Widget _buildOngoingCard(Map<String, dynamic> c) {
     final opponent = c['creator_id'] == _supabase.auth.currentUser?.id ? c['opponent'] : c['creator'];
     final double prizePool = c['entry_fee'] * 2 * (1 - ((c['commission_percent'] ?? 10) / 100));
-    final String? gameImageUrl = c['games']?['image_url'];
+    final String? gameImageUrl = c['games']?['logo_url'];
 
     return GestureDetector(
       onTap: () => context.push('/challenge_detail/${c['id']}'),
@@ -560,10 +584,11 @@ class _ChallengeListViewState extends State<ChallengeListView> {
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    const CircleAvatar(
+                    CircleAvatar(
                       radius: 18,
                       backgroundColor: Colors.white12,
-                      child: Icon(Icons.person, color: Colors.white70, size: 20),
+                      backgroundImage: opponent?['avatar_url'] != null ? CachedNetworkImageProvider(opponent!['avatar_url']) : null,
+                      child: opponent?['avatar_url'] == null ? const Icon(Icons.person, color: Colors.white70, size: 20) : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -636,7 +661,10 @@ class _ChallengeListViewState extends State<ChallengeListView> {
   Widget _buildCompletedCard(Map<String, dynamic> c) {
     final bool isWinner = c['winner_id'] == _supabase.auth.currentUser?.id;
     final winnerName = isWinner ? 'You (Victory!)' : (c['winner_id'] != null ? 'Opponent' : 'Draw/Refunded');
-    final String? gameImageUrl = c['games']?['image_url'];
+    final String? gameImageUrl = c['games']?['logo_url'];
+    final opponent = c['creator_id'] == _supabase.auth.currentUser?.id ? c['opponent'] : c['creator'];
+    final String? avatarUrl = opponent?['avatar_url'];
+    final String opponentName = opponent?['username'] ?? 'Opponent';
 
     return GestureDetector(
       onTap: () => context.push('/challenge_detail/${c['id']}'),
@@ -671,10 +699,26 @@ class _ChallengeListViewState extends State<ChallengeListView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Vs ${c['creator_id'] == _supabase.auth.currentUser?.id ? (c['opponent']?['username'] ?? 'Opponent') : (c['creator']?['username'] ?? 'Creator')}', 
+                      Text('Vs $opponentName', 
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                       Text('₹${(c['entry_fee'] * 2 * 0.9).toStringAsFixed(0)}', 
                         style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w900, fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Colors.white10,
+                        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
+                        child: avatarUrl == null || avatarUrl.isEmpty ? const Icon(Icons.person, size: 14, color: Colors.white38) : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        opponentName,
+                        style: const TextStyle(color: Colors.white54, fontSize: 13),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),

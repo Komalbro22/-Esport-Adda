@@ -234,7 +234,7 @@ final _router = GoRouter(
 );
 
 class AdminApp extends StatelessWidget {
-  const AdminApp({Key? key}) : super(key: key);
+  const AdminApp({super.key});
 
   @override
   Widget build(BuildContext context) {

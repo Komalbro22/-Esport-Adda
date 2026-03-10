@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:esport_core/services/imgbb_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 class AppSettingsScreen extends StatefulWidget {
   const AppSettingsScreen({Key? key}) : super(key: key);
 
@@ -23,11 +24,22 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   String? _logoUrl;
   String? _adminLogoUrl;
   String? _settingsId;
+  String _version = "Loading...";
 
   @override
   void initState() {
     super.initState();
     _fetchSettings();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = "${packageInfo.version}+${packageInfo.buildNumber}";
+      });
+    }
   }
 
   Future<void> _fetchSettings() async {
@@ -250,6 +262,14 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                 isLoading: _isSaving,
               ),
             ),
+            const SizedBox(height: 40),
+            Center(
+              child: Text(
+                'Admin App Version $_version',
+                style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),

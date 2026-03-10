@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class ChallengeManagementScreen extends StatefulWidget {
-  const ChallengeManagementScreen({Key? key}) : super(key: key);
+  const ChallengeManagementScreen({super.key});
 
   @override
   State<ChallengeManagementScreen> createState() => _ChallengeManagementScreenState();
@@ -76,27 +76,27 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
   }
 
   Future<void> _fetchStats() async {
-    // This is a simplified fetch, in production we might use an RPC or specific counts
-    final challengesRes = await _supabase.from('challenges').select('status, entry_fee');
-    final challenges = challengesRes as List;
-    
-    final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24)).toIso8601String();
-    final newUsersRes = await _supabase.from('users')
-        .select('id')
-        .gte('created_at', twentyFourHoursAgo);
-        
-    final newUsersCount = (newUsersRes as List).length; // Simplified since we are already getting the list
+    try {
+      final twentyFourHoursAgo = DateTime.now().subtract(const Duration(hours: 24)).toIso8601String();
+      
+      final challengesRes = await _supabase.from('challenges').select('status, entry_fee');
+      final challenges = challengesRes as List;
 
-    if (mounted) {
-      setState(() {
-        _activeCount = challenges.where((c) => ['open', 'accepted', 'ready', 'ongoing'].contains(c['status'])).length;
-        _disputeCount = challenges.where((c) => c['status'] == 'dispute').length;
-        _totalPool = challenges
-            .where((c) => ['accepted', 'ready', 'ongoing'].contains(c['status']))
-            .fold(0.0, (sum, c) => sum + ((c['entry_fee'] as num?)?.toDouble() ?? 0.0) * 2);
-        _newPlayersCount = (newUsersRes as List).length;
-      });
-    }
+      // Get new users count
+      final newUsersRes = await _supabase.from('users').select('id').gte('created_at', twentyFourHoursAgo);
+      final newUsersCount = (newUsersRes as List).length;
+
+      if (mounted) {
+        setState(() {
+          _activeCount = challenges.where((c) => ['open', 'accepted', 'ready', 'ongoing'].contains(c['status'])).length;
+          _disputeCount = challenges.where((c) => c['status'] == 'dispute').length;
+          _totalPool = challenges
+              .where((c) => ['accepted', 'ready', 'ongoing'].contains(c['status']))
+              .fold(0.0, (sum, c) => sum + ((c['entry_fee'] as num?)?.toDouble() ?? 0.0) * 2);
+          _newPlayersCount = newUsersCount;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -158,7 +158,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 16),
@@ -205,7 +205,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
         Container(
           width: 200,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(color: StitchTheme.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: StitchTheme.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withValues(alpha: 0.05))),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: value,
@@ -230,7 +230,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
         Container(
           width: 200,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(color: StitchTheme.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+          decoration: BoxDecoration(color: StitchTheme.background, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withValues(alpha: 0.05))),
           child: Row(
             children: [
               Expanded(child: Text(value, style: const TextStyle(fontSize: 13, color: Colors.white70))),
@@ -265,7 +265,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
       decoration: BoxDecoration(
         color: StitchTheme.surface, 
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
       child: Column(
         children: [
@@ -302,7 +302,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05)))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)))),
       child: Row(
         children: [
           Expanded(
@@ -360,7 +360,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
   Widget _buildMobileCard(Map<String, dynamic> c) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.05)))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.05)))),
       child: Column(
         children: [
           Row(
@@ -392,14 +392,14 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
               if (c['status'] == 'dispute')
                  StitchButton(
                   text: 'Resolve', 
-                  backgroundColor: Colors.redAccent.withOpacity(0.1),
+                  backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
                   textColor: Colors.redAccent,
                   onPressed: () => context.push('/dispute_detail/${c['id']}'),
                 )
               else
                 StitchButton(
                   text: 'View', 
-                  backgroundColor: Colors.white.withOpacity(0.05),
+                  backgroundColor: Colors.white.withValues(alpha: 0.05),
                   textColor: Colors.white70,
                   onPressed: () => context.push('/dispute_detail/${c['id']}'),
                 ),
@@ -447,7 +447,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(status.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
@@ -458,7 +458,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: color.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
         child: Icon(icon, color: color, size: 18),
       ),
     );
