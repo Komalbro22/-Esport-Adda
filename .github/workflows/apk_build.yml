@@ -120,6 +120,7 @@ jobs:
           name: Release v${{ env.NEW_BUILD_NUMBER }}
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true
           files: |
             esport_user_app.apk
             esport_admin_app.apk
@@ -127,3 +128,15 @@ jobs:
             Automatically generated release from GitHub Actions.
             - User App Build: ${{ env.NEW_BUILD_NUMBER }}
             - Admin App Build: ${{ env.NEW_BUILD_NUMBER }}
+
+      - name: Upload User App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esport_user_app-v${{ env.NEW_BUILD_NUMBER }}
+          path: esport_user_app.apk
+
+      - name: Upload Admin App Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: esport_admin_app-v${{ env.NEW_BUILD_NUMBER }}
+          path: esport_admin_app.apk
