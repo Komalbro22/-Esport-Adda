@@ -92,6 +92,8 @@ jobs:
           echo "storeFile=esportadda-release.keystore" >> android/key.properties
           flutter pub get
           flutter build apk --release
+          # Rename to avoid conflict in release
+          cp build/app/outputs/flutter-apk/app-release.apk ../esport_user_app.apk
 
       - name: Build Admin App
         working-directory: esport_admin_app
@@ -108,6 +110,8 @@ jobs:
           echo "storeFile=esportadda-release.keystore" >> android/key.properties
           flutter pub get
           flutter build apk --release
+          # Rename to avoid conflict in release
+          cp build/app/outputs/flutter-apk/app-release.apk ../esport_admin_app.apk
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -117,8 +121,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            esport_user_app/build/app/outputs/flutter-apk/app-release.apk
-            esport_admin_app/build/app/outputs/flutter-apk/app-release.apk
+            esport_user_app.apk
+            esport_admin_app.apk
           body: |
             Automatically generated release from GitHub Actions.
             - User App Build: ${{ env.NEW_BUILD_NUMBER }}
