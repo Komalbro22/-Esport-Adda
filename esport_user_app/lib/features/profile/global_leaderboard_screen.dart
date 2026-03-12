@@ -321,11 +321,13 @@ class _PodiumSpot extends StatelessWidget {
                     BoxShadow(color: medalColor.withOpacity(0.3), blurRadius: 15, spreadRadius: 2)
                   ],
                 ),
-                child: CircleAvatar(
-                  radius: avatarSize,
-                  backgroundColor: StitchTheme.surface,
-                  backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
-                  child: player['avatar_url'] == null ? const Icon(Icons.person, color: StitchTheme.textMuted) : null,
+                child: GestureDetector(
+                  onTap: () => context.push('/public_profile/${player['user_id']}'),
+                  child: StitchAvatar(
+                    radius: avatarSize,
+                    name: player['name'] ?? 'Player',
+                    avatarUrl: player['avatar_url'],
+                  ),
                 ),
               ),
               Positioned(
@@ -430,12 +432,13 @@ class _LeaderboardRow extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: StitchTheme.surfaceHighlight, width: 1.5),
             ),
-            child: CircleAvatar(
-              backgroundColor: StitchTheme.surfaceHighlight,
-              backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
-              child: player['avatar_url'] == null 
-                  ? const Icon(Icons.person, size: 20, color: StitchTheme.textMuted) 
-                  : null,
+            child: GestureDetector(
+              onTap: () => context.push('/public_profile/${player['user_id']}'),
+              child: StitchAvatar(
+                name: player['name'] ?? 'Player',
+                avatarUrl: player['avatar_url'],
+                radius: 40,
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -505,12 +508,13 @@ class _StickyBottomBar extends StatelessWidget {
           Container(
             width: 44, height: 44,
             decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: StitchTheme.primary, width: 2)),
-            child: CircleAvatar(
-              backgroundColor: StitchTheme.surfaceHighlight,
-              backgroundImage: player['avatar_url'] != null ? CachedNetworkImageProvider(player['avatar_url']) : null,
-              child: player['avatar_url'] == null 
-                  ? const Icon(Icons.person, size: 24, color: StitchTheme.textMuted) 
-                  : null,
+            child: GestureDetector(
+              onTap: () => context.push('/public_profile/${player['user_id']}'),
+              child: StitchAvatar(
+                name: player['name'] ?? 'Player',
+                avatarUrl: player['avatar_url'],
+                radius: 44,
+              ),
             ),
           ),
           const SizedBox(width: 12),

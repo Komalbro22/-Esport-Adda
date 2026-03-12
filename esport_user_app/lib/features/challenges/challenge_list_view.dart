@@ -90,7 +90,7 @@ class _ChallengeListViewState extends State<ChallengeListView> {
       // Note: No spaces in select string to avoid potential PostgREST parsing issues
       // Build query with safe join syntax to fix NoSuchMethodError
       // and avoid previous 400 Bad Request error.
-      const selectStr = '*,creator:users!creator_id(username,avatar_url,fair_score),opponent:users!opponent_id(username,avatar_url,fair_score),games(name,logo_url)';
+      const selectStr = '*,creator:users!creator_id(id,username,avatar_url,fair_score),opponent:users!opponent_id(id,username,avatar_url,fair_score),games(name,logo_url)';
       
       var query = _supabase.from('challenges').select(selectStr).eq('game_id', widget.gameId);
 
@@ -300,7 +300,16 @@ class _ChallengeListViewState extends State<ChallengeListView> {
           children: [
             Row(
               children: [
-                _buildAvatar(c['creator']?['avatar_url']),
+                GestureDetector(
+                  onTap: () => context.push('/public_profile/${c['creator_id']}'),
+                  child: StitchAvatar(
+                    radius: 25,
+                    name: c['creator']['username'] ?? 'User',
+                    avatarUrl: c['creator']?['avatar_url'],
+                    borderWidth: 2,
+                    borderColor: Colors.deepPurpleAccent.withOpacity(0.3),
+                  ),
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -387,29 +396,6 @@ class _ChallengeListViewState extends State<ChallengeListView> {
     );
   }
 
-  Widget _buildAvatar(String? url) {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.deepPurpleAccent.withOpacity(0.3), width: 2),
-      ),
-      child: ClipOval(
-        child: Container(
-          color: Colors.black26,
-          child: url != null && url.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: url,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => const Icon(Icons.person, color: Colors.white24),
-                  errorWidget: (context, url, error) => const Icon(Icons.person_outline_rounded, color: Colors.deepPurpleAccent),
-                )
-              : const Icon(Icons.person_outline_rounded, color: Colors.deepPurpleAccent),
-        ),
-      ),
-    );
-  }
 
   Widget _buildTag(IconData icon, String label, {Widget? iconWidget}) {
     return Expanded(
@@ -584,11 +570,14 @@ class _ChallengeListViewState extends State<ChallengeListView> {
                 padding: const EdgeInsets.all(20),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: Colors.white12,
-                      backgroundImage: opponent?['avatar_url'] != null ? CachedNetworkImageProvider(opponent!['avatar_url']) : null,
-                      child: opponent?['avatar_url'] == null ? const Icon(Icons.person, color: Colors.white70, size: 20) : null,
+                    GestureDetector(
+                      onTap: () => context.push('/public_profile/${opponent!['id']}'),
+                      child: StitchAvatar(
+                        radius: 18,
+                        name: opponent != null ? opponent['username'] : 'Opponent',
+                        avatarUrl: opponent?['avatar_url'],
+                        backgroundColor: Colors.white12,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -708,11 +697,14 @@ class _ChallengeListViewState extends State<ChallengeListView> {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor: Colors.white10,
-                        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
-                        child: avatarUrl == null || avatarUrl.isEmpty ? const Icon(Icons.person, size: 14, color: Colors.white38) : null,
+                      GestureDetector(
+                        onTap: () => context.push('/public_profile/${opponent!['id']}'),
+                        child: StitchAvatar(
+                          radius: 12,
+                          name: opponentName,
+                          avatarUrl: avatarUrl,
+                          backgroundColor: Colors.white10,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(

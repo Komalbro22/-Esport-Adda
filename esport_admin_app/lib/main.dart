@@ -30,6 +30,7 @@ import 'features/disputes/dispute_detail_screen.dart';
 import 'features/users/fair_play_score_logs_screen.dart';
 import 'features/challenges/challenge_analytics_screen.dart';
 import 'features/challenges/challenge_management_screen.dart';
+import 'features/vouchers/voucher_management_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -102,6 +103,13 @@ final _router = GoRouter(
           child: FinancesScreen(initialTab: tab),
         );
       },
+    ),
+    GoRoute(
+      path: '/vouchers',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canManageWithdrawals,
+        child: const VoucherManagementScreen(),
+      ),
     ),
     GoRoute(
       path: '/assets',

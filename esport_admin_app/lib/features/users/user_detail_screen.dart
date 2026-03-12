@@ -308,11 +308,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
         children: [
           Row(
             children: [
-              CircleAvatar(
+              StitchAvatar(
                 radius: 40,
-                backgroundColor: StitchTheme.surfaceHighlight,
-                backgroundImage: _user!['avatar_url'] != null ? NetworkImage(_user!['avatar_url']) : null,
-                child: _user!['avatar_url'] == null ? const Icon(Icons.person, size: 40, color: StitchTheme.primary) : null,
+                name: _user!['name'] ?? _user!['username'] ?? 'User',
+                avatarUrl: _user!['avatar_url'],
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -322,6 +321,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
                     Text(_user!['name'] ?? 'User Name', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
                     Text('@${_user!['username']}', style: const TextStyle(color: StitchTheme.primary)),
                     Text(_user!['email'] ?? '', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+                    if (_user!['phone'] != null && _user!['phone'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(_user!['phone'], style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+                      ),
                     const SizedBox(height: 8),
                     _buildFairScoreSection(),
                   ],
@@ -329,6 +333,42 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
               ),
             ],
           ),
+          if (_user!['bio'] != null && _user!['bio'].toString().isNotEmpty) ...[
+            const Divider(height: 32, color: StitchTheme.surfaceHighlight),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('BIO', style: TextStyle(fontSize: 10, color: StitchTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const SizedBox(height: 4),
+                  Text(_user!['bio'], style: const TextStyle(fontSize: 13, color: StitchTheme.textMain)),
+                ],
+              ),
+            ),
+          ],
+          if (_user!['social_links'] != null && (_user!['social_links'] as Map).isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('SOCIALS', style: TextStyle(fontSize: 10, color: StitchTheme.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 12,
+                    children: [
+                      if (_user!['social_links']['instagram']?.toString().isNotEmpty == true)
+                        _buildSocialChip(Icons.camera_alt_outlined, 'Instagram', _user!['social_links']['instagram']),
+                      if (_user!['social_links']['discord']?.toString().isNotEmpty == true)
+                        _buildSocialChip(Icons.discord_outlined, 'Discord', _user!['social_links']['discord']),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Divider(height: 32, color: StitchTheme.surfaceHighlight),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -429,6 +469,25 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           ),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSocialChip(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: StitchTheme.surfaceHighlight,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: StitchTheme.primary),
+          const SizedBox(width: 8),
+          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ],
       ),
     );

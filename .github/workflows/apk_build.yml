@@ -35,51 +35,42 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Increment Version (User App)
-        working-directory: esport_user_app
+      - name: Increment Version & Set Build Numbers
         run: |
-          # Get current version details
+          # OFFSET ensures we stay above existing manual versions (like +29)
+          OFFSET=100
+          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + OFFSET))
+          
+          echo "NEW_BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
+          
+          # Update User App
+          cd esport_user_app
           VERSION_LINE=$(grep "version: " pubspec.yaml)
-          VERSION=$(echo $VERSION_LINE | cut -d' ' -f2)
-          VERSION_NAME=$(echo $VERSION | cut -d'+' -f1)
-          
-          # Increment patch version (e.g., 1.0.1 -> 1.0.2)
-          MAJOR=$(echo $VERSION_NAME | cut -d'.' -f1)
-          MINOR=$(echo $VERSION_NAME | cut -d'.' -f2)
-          PATCH=$(echo $VERSION_NAME | cut -d'.' -f3)
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION_NAME="$MAJOR.$MINOR.$NEW_PATCH"
-          
-          # Combine with new Build Number (using GitHub Run Number)
-          # This ensures versionCode always increases for mobile updates
-          NEW_VERSION="$NEW_VERSION_NAME+${{ github.run_number }}"
-          
-          # Update pubspec.yaml
+          VERSION_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
+          # Increment patch
+          IFS='.' read -r major minor patch <<< "$VERSION_NAME"
+          NEW_VERSION_NAME="$major.$minor.$((patch + 1))"
+          NEW_VERSION="$NEW_VERSION_NAME+$BUILD_NUMBER"
           sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
-          echo "Updated User App to $NEW_VERSION"
-
-      - name: Increment Version (Admin App)
-        working-directory: esport_admin_app
-        run: |
+          cd ..
+          
+          # Update Admin App
+          cd esport_admin_app
           VERSION_LINE=$(grep "version: " pubspec.yaml)
-          VERSION=$(echo $VERSION_LINE | cut -d' ' -f2)
-          VERSION_NAME=$(echo $VERSION | cut -d'+' -f1)
-          
-          MAJOR=$(echo $VERSION_NAME | cut -d'.' -f1)
-          MINOR=$(echo $VERSION_NAME | cut -d'.' -f2)
-          PATCH=$(echo $VERSION_NAME | cut -d'.' -f3)
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION_NAME="$MAJOR.$MINOR.$NEW_PATCH"
-          
-          NEW_VERSION="$NEW_VERSION_NAME+${{ github.run_number }}"
-          
+          VERSION_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
+          # Increment patch
+          IFS='.' read -r major minor patch <<< "$VERSION_NAME"
+          NEW_VERSION_NAME="$major.$minor.$((patch + 1))"
+          NEW_VERSION="$NEW_VERSION_NAME+$BUILD_NUMBER"
           sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
-          echo "Updated Admin App to $NEW_VERSION"
+          cd ..
+          
+          echo "User App & Admin App updated to build $BUILD_NUMBER"
 
       - name: Commit Version Bump
         run: |
           git add esport_user_app/pubspec.yaml esport_admin_app/pubspec.yaml
-          git commit -m "chore: bump version to ${{ github.run_number }} [skip ci]"
+          git commit -m "chore: bump version to build $NEW_BUILD_NUMBER [skip ci]" || echo "No changes to commit"
           git push
 
       - name: Get Dependencies (Core)
@@ -94,14 +85,11 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          # Setup Keystore
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
           echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
           echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
           echo "keyAlias=$KEY_ALIAS" >> android/key.properties
           echo "storeFile=esportadda-release.keystore" >> android/key.properties
-          
-          # Get dependencies and build
           flutter pub get
           flutter build apk --release
 
@@ -113,25 +101,25 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          # Setup Keystore
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
           echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
           echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
           echo "keyAlias=$KEY_ALIAS" >> android/key.properties
           echo "storeFile=esportadda-release.keystore" >> android/key.properties
-          
-          # Get dependencies and build
           flutter pub get
           flutter build apk --release
 
-      - name: Upload User App APK
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: esport_user_app-release-v${{ github.run_number }}
-          path: esport_user_app/build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload Admin App APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: esport_admin_app-release-v${{ github.run_number }}
-          path: esport_admin_app/build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v${{ env.NEW_BUILD_NUMBER }}
+          name: Release v${{ env.NEW_BUILD_NUMBER }}
+          draft: false
+          prerelease: false
+          files: |
+            esport_user_app/build/app/outputs/flutter-apk/app-release.apk
+            esport_admin_app/build/app/outputs/flutter-apk/app-release.apk
+          body: |
+            Automatically generated release from GitHub Actions.
+            - User App Build: ${{ env.NEW_BUILD_NUMBER }}
+            - Admin App Build: ${{ env.NEW_BUILD_NUMBER }}

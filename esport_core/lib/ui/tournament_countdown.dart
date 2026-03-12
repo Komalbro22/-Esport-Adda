@@ -17,7 +17,7 @@ class TournamentCountdown extends StatefulWidget {
 }
 
 class _TournamentCountdownState extends State<TournamentCountdown> {
-  late Timer _timer;
+  Timer? _timer;
   Duration _timeLeft = Duration.zero;
 
   @override
@@ -35,7 +35,7 @@ class _TournamentCountdownState extends State<TournamentCountdown> {
 
     if (difference.isNegative) {
       _timeLeft = Duration.zero;
-      _timer.cancel();
+      _timer?.cancel();
       widget.onTimerFinished?.call();
     } else {
       if (mounted) {
@@ -48,7 +48,7 @@ class _TournamentCountdownState extends State<TournamentCountdown> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 

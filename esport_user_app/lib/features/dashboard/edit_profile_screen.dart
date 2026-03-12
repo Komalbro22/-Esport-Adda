@@ -16,7 +16,16 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _supabase = Supabase.instance.client;
   final _nameCtrl = TextEditingController();
-  final _usernameCtrl = TextEditingController(); // read-only usually, but let's show it
+  final _usernameCtrl = TextEditingController(); 
+  final _phoneCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
+  final _instagramCtrl = TextEditingController();
+  final _discordCtrl = TextEditingController();
+  
+  bool _showBio = true;
+  bool _showPhone = false;
+  bool _showSocials = true;
+  bool _hideAvatar = false;
   
   bool _isLoading = true;
   bool _isSaving = false;
@@ -39,10 +48,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final data = await _supabase.from('users').select().eq('id', user.id).single();
       
       if (mounted) {
+        final social = data['social_links'] as Map<String, dynamic>? ?? {};
         setState(() {
           _nameCtrl.text = data['name'] ?? '';
           _usernameCtrl.text = data['username'] ?? '';
+          _phoneCtrl.text = data['phone'] ?? '';
+          _bioCtrl.text = data['bio'] ?? '';
+          _instagramCtrl.text = social['instagram'] ?? '';
+          _discordCtrl.text = social['discord'] ?? '';
           _avatarUrl = data['avatar_url'];
+          
+          _showBio = data['show_bio'] ?? true;
+          _showPhone = data['show_phone'] ?? false;
+          _showSocials = data['show_socials'] ?? true;
+          _hideAvatar = data['hide_avatar'] ?? false;
+          
           _isLoading = false;
         });
       }
@@ -110,6 +130,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       await _supabase.from('users').update({
         'name': name,
+        'phone': _phoneCtrl.text.trim(),
+        'bio': _bioCtrl.text.trim(),
+        'social_links': {
+          'instagram': _instagramCtrl.text.trim(),
+          'discord': _discordCtrl.text.trim(),
+        },
+        'show_bio': _showBio,
+        'show_phone': _showPhone,
+        'show_socials': _showSocials,
+        'hide_avatar': _hideAvatar,
         if (_avatarUrl != null) 'avatar_url': _avatarUrl,
       }).eq('id', user.id);
       
@@ -151,13 +181,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  CircleAvatar(
+                  StitchAvatar(
                     radius: 60,
-                    backgroundColor: StitchTheme.surfaceHighlight,
-                    backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-                    child: _avatarUrl == null 
-                        ? const Icon(Icons.person, size: 60, color: StitchTheme.primary) 
-                        : null,
+                    name: _nameCtrl.text.trim(),
+                    avatarUrl: _avatarUrl,
                   ),
                   Positioned(
                     bottom: 0,
@@ -193,6 +220,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       label: 'Username',
                       controller: _usernameCtrl,
                     ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Phone Number',
+                      controller: _phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Bio',
+                      controller: _bioCtrl,
+                      maxLines: 3,
+                      hintText: 'Tell us about yourself...',
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('SOCIAL LINKS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const SizedBox(height: 12),
+                    StitchInput(
+                      label: 'Instagram Username',
+                      controller: _instagramCtrl,
+                      hintText: '@username',
+                    ),
+                    const SizedBox(height: 12),
+                    StitchInput(
+                      label: 'Discord ID',
+                      controller: _discordCtrl,
+                      hintText: 'username#0000',
+                    ),
+                    const SizedBox(height: 32),
+                    const Text('PRIVACY SETTINGS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const SizedBox(height: 12),
+                    _buildPrivacyToggle('Show Bio on Public Profile', _showBio, (v) => setState(() => _showBio = v)),
+                    _buildPrivacyToggle('Show Phone Number', _showPhone, (v) => setState(() => _showPhone = v)),
+                    _buildPrivacyToggle('Show Social Links', _showSocials, (v) => setState(() => _showSocials = v)),
+                    _buildPrivacyToggle('Hide Profile Picture (Show Initials)', _hideAvatar, (v) => setState(() => _hideAvatar = v)),
                     const SizedBox(height: 32),
                     if (_isSaving)
                       const Center(child: StitchLoading())
@@ -208,6 +269,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPrivacyToggle(String title, bool value, ValueChanged<bool> onChanged) {
+    return SwitchListTile(
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      value: value,
+      onChanged: onChanged,
+      activeColor: StitchTheme.primary,
+      contentPadding: EdgeInsets.zero,
     );
   }
 }

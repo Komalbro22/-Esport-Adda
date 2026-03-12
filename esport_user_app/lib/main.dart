@@ -33,6 +33,10 @@ import 'features/challenges/challenge_detail_screen.dart';
 import 'features/challenges/accept_challenge_screen.dart';
 import 'features/challenges/room_setup_screen.dart';
 import 'features/challenges/dispute_detail_screen.dart';
+import 'features/dashboard/voucher_categories_screen.dart';
+import 'features/dashboard/voucher_amounts_screen.dart';
+import 'features/dashboard/voucher_history_screen.dart';
+import 'features/profile/public_profile_screen.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -161,6 +165,18 @@ final _router = GoRouter(
       builder: (context, state) => const WalletScreen(),
     ),
     GoRoute(
+      path: '/withdraw/vouchers',
+      builder: (context, state) => const VoucherCategoriesScreen(),
+    ),
+    GoRoute(
+      path: '/withdraw/vouchers/amounts',
+      builder: (context, state) => VoucherAmountsScreen(category: state.extra as VoucherCategory),
+    ),
+    GoRoute(
+      path: '/withdraw/vouchers/history',
+      builder: (context, state) => const VoucherHistoryScreen(),
+    ),
+    GoRoute(
       path: '/global_leaderboard',
       builder: (context, state) => const GlobalLeaderboardScreen(),
     ),
@@ -215,6 +231,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/dispute_detail/:id',
       builder: (context, state) => DisputeDetailScreen(challengeId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/public_profile/:id',
+      builder: (context, state) => PublicProfileScreen(userId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/complete-profile',

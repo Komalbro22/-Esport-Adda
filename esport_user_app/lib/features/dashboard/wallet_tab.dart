@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:go_router/go_router.dart';
 
 class WalletTab extends StatefulWidget {
   const WalletTab({super.key});
@@ -197,6 +198,61 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   }
 
   void _showWithdrawMoney() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: StitchTheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Withdraw Money', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              const SizedBox(height: 8),
+              const Text('Choose your preferred withdrawal method:', style: TextStyle(color: StitchTheme.textMuted)),
+              const SizedBox(height: 24),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.account_balance_rounded, color: StitchTheme.primary),
+                ),
+                title: const Text('Bank Transfer / UPI', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                subtitle: const Text('Directly to your bank account via UPI ID', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: StitchTheme.textMuted),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showUpiWithdrawDialog();
+                },
+              ),
+              const Divider(color: Colors.white12, height: 32),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: StitchTheme.success.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.card_giftcard_rounded, color: StitchTheme.success),
+                ),
+                title: const Text('Gift Voucher', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                subtitle: const Text('Instant redemption for Google Play, Amazon, etc. (Subject to availability)', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: StitchTheme.textMuted),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.push('/withdraw/vouchers');
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  void _showUpiWithdrawDialog() {
     final amtController = TextEditingController();
     final upiController = TextEditingController();
     
@@ -205,7 +261,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
 
     StitchDialog.show(
       context: context,
-      title: 'Withdraw Money',
+      title: 'Withdraw to UPI',
       content: StatefulBuilder(
         builder: (context, setDialogState) {
           return Column(
@@ -254,8 +310,23 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
                 'reference_id': withdrawRes['id'].toString(),
             });
             if (mounted) StitchSnackbar.showSuccess(context, 'Withdraw request submitted successfully!');
+            
+            // Proactively update local wallet state if needed, though real-time stream should handle it.
+            // The user requested that money should be debited instantly.
+            // We'll also update the public.user_wallets table in the same flow or rely on a DB trigger/procedure.
+            // Current code just inserts. Let's add the deduction here or ensure a DB trigger does it.
+            // The user said: "when user click on withdaw... his money should be debited"
+            
+            final user = _supabase.auth.currentUser;
+            if (user != null) {
+              await _supabase.rpc('deduct_wallet_balance', params: {
+                'p_user_id': user.id,
+                'p_amount': result['amt'],
+                'p_wallet_type': 'winning'
+              });
+            }
           } catch(e) {
-            if (mounted) StitchSnackbar.showError(context, 'Failed to submit request');
+            if (mounted) StitchSnackbar.showError(context, 'Failed to submit request: $e');
           } finally {
             _fetchWalletData();
           }
@@ -316,44 +387,98 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              gradient: StitchTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(30),
+              gradient: LinearGradient(
+                colors: [
+                  StitchTheme.primary,
+                  StitchTheme.primary.withValues(alpha: 0.8),
+                  const Color(0xFF00D1FF), // A subtle blue hint for depth
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: StitchTheme.primary.withValues(alpha: 0.2),
-                  blurRadius: 30,
-                  offset: const Offset(0, 10),
+                  color: StitchTheme.primary.withValues(alpha: 0.25),
+                  blurRadius: 40,
+                  offset: const Offset(0, 15),
                 )
               ],
             ),
             child: Column(
               children: [
-                Text(
-                  'TOTAL BALANCE',
-                  style: TextStyle(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1.5)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.account_balance_wallet_rounded, color: Colors.black.withOpacity(0.5), size: 14),
+                    const SizedBox(width: 8),
+                    Text(
+                      'TOTAL BALANCE',
+                      style: TextStyle(color: Colors.black.withOpacity(0.6), fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 2)
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
                   '₹${totalBal.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.black, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: -1)
+                  style: const TextStyle(color: Colors.black, fontSize: 46, fontWeight: FontWeight.w900, letterSpacing: -1.5)
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.verified_user_rounded, color: Colors.black54, size: 14),
-                      SizedBox(width: 8),
-                      Text('SECURE WALLET', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.w900, fontSize: 10, letterSpacing: 1)),
-                    ],
-                  ),
-                )
+                const SizedBox(height: 28),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildQuickAction(Icons.history_rounded, 'History', () => setState(() => _tabController.animateTo(1))),
+                    const SizedBox(width: 24),
+                    _buildQuickAction(Icons.security_rounded, 'Secure', () {}),
+                  ],
+                ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Voucher Shortcut Card
+          GestureDetector(
+            onTap: () => context.push('/withdraw/vouchers'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.15)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: StitchTheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.confirmation_number_rounded, color: StitchTheme.primary, size: 22),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('MY VOUCHERS', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5)),
+                        SizedBox(height: 2),
+                        Text('Redeem rewards & coupons', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: StitchTheme.textMuted),
+                ],
+              ),
             ),
           ),
           
@@ -433,6 +558,42 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildVoucherHistoryShortcut(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAction(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.black54, size: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Colors.black.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoucherHistoryShortcut() {
+    return TextButton(
+      onPressed: () => context.push('/withdraw/vouchers/history'),
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history_edu_rounded, size: 16, color: StitchTheme.textMuted),
+          SizedBox(width: 8),
+          Text('View Voucher history →', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
         ],
       ),
     );
@@ -568,18 +729,42 @@ class _BalanceSubCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: StitchTheme.surface,
+        color: StitchTheme.surfaceHighlight,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(
+          color: isHighlight 
+            ? StitchTheme.primary.withValues(alpha: 0.3) 
+            : Colors.white.withValues(alpha: 0.05),
+          width: isHighlight ? 1.5 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: isHighlight ? StitchTheme.success : StitchTheme.textMuted.withValues(alpha: 0.5), size: 20),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: isHighlight ? StitchTheme.primary : StitchTheme.textMuted),
+              const SizedBox(width: 8),
+              Text(
+                title, 
+                style: TextStyle(
+                  color: isHighlight ? StitchTheme.primary : StitchTheme.textMuted, 
+                  fontSize: 10, 
+                  fontWeight: FontWeight.w900, 
+                  letterSpacing: 1
+                )
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20, 
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );

@@ -165,13 +165,11 @@ class _MatchResultsScreenState extends State<MatchResultsScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      CircleAvatar(
+                      StitchAvatar(
                         radius: 20,
+                        name: user['name'] ?? 'Player',
+                        avatarUrl: user['avatar_url'],
                         backgroundColor: const Color(0xFF2A2D36),
-                        backgroundImage: user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
-                        child: user['avatar_url'] == null 
-                          ? Text((user['name'] ?? 'P')[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-                          : null,
                       ),
                       const SizedBox(width: 16),
                       Expanded(

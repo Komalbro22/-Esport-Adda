@@ -44,7 +44,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
       final futures = await Future.wait([
         _supabase.from('tournaments').select('*, games(name)').eq('id', widget.tournamentId).single(),
         _supabase.from('joined_teams').select('*').eq('tournament_id', widget.tournamentId).eq('user_id', user.id).maybeSingle(),
-        _supabase.from('joined_teams').select('users(name, username)').eq('tournament_id', widget.tournamentId).limit(50),
+        _supabase.from('joined_teams').select('users(name, username, avatar_url)').eq('tournament_id', widget.tournamentId).limit(50),
       ]);
 
       if (mounted) {
@@ -302,9 +302,13 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen> {
                           children: _participants.map((p) {
                             final user = p['users'];
                             return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: StitchTheme.primary.withOpacity(0.1),
-                                child: Text(user['name']?[0] ?? '?', style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+                              leading: GestureDetector(
+                                onTap: () => context.push('/public_profile/${user['id']}'),
+                                child: StitchAvatar(
+                                  radius: 20,
+                                  name: user['name'] ?? 'Player',
+                                  avatarUrl: user['avatar_url'],
+                                ),
                               ),
                               title: Text(user['name'] ?? 'Player', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 14)),
                               subtitle: Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
@@ -582,7 +586,7 @@ class _CustomCountdownBlock extends StatefulWidget {
 }
 
 class _CustomCountdownBlockState extends State<_CustomCountdownBlock> {
-  late Timer _timer;
+  Timer? _timer;
   Duration _timeLeft = Duration.zero;
 
   @override
@@ -600,6 +604,7 @@ class _CustomCountdownBlockState extends State<_CustomCountdownBlock> {
           _timeLeft = widget.startTime.difference(now);
         } else {
           _timeLeft = Duration.zero;
+          _timer?.cancel();
         }
       });
     }
@@ -607,7 +612,7 @@ class _CustomCountdownBlockState extends State<_CustomCountdownBlock> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 

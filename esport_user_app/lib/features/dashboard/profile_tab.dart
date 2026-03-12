@@ -243,15 +243,11 @@ class _ProfileTabState extends State<ProfileTab> {
           shape: BoxShape.circle,
           color: Colors.black,
         ),
-        child: CircleAvatar(
+        child: StitchAvatar(
           radius: 54,
+          name: _userData!['name'] ?? _userData!['username'] ?? 'User',
+          avatarUrl: _userData!['avatar_url'],
           backgroundColor: const Color(0xFF1B1B1B),
-          backgroundImage: _userData!['avatar_url'] != null 
-              ? NetworkImage(_userData!['avatar_url']) 
-              : null,
-          child: _userData!['avatar_url'] == null 
-              ? const Icon(Icons.person, size: 54, color: Colors.white24) 
-              : null,
         ),
       ),
     );

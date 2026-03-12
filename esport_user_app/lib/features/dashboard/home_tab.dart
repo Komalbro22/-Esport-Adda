@@ -20,6 +20,7 @@ class _HomeTabState extends State<HomeTab> {
   
   // Performance: Using ValueNotifier for granular updates
   final ValueNotifier<Map<String, dynamic>?> _walletStatsNotifier = ValueNotifier<Map<String, dynamic>?>(null);
+  final ValueNotifier<Map<String, dynamic>?> _userProfileNotifier = ValueNotifier<Map<String, dynamic>?>(null);
   
   final ScrollController _scrollController = ScrollController();
 
@@ -51,6 +52,7 @@ class _HomeTabState extends State<HomeTab> {
             .eq('status', 'upcoming')
             .order('start_time', ascending: true)
             .limit(5),
+        _supabase.from('users').select('name, username, avatar_url').eq('id', user.id).single(),
       ]);
 
       if (mounted) {
@@ -62,6 +64,7 @@ class _HomeTabState extends State<HomeTab> {
         });
         // Update wallet separately via notifier to avoid full rebuild
         _walletStatsNotifier.value = futures[1] as Map<String, dynamic>;
+        _userProfileNotifier.value = futures[4] as Map<String, dynamic>;
       }
     } catch (e) {
       if (mounted) {
@@ -143,8 +146,13 @@ class _HomeTabState extends State<HomeTab> {
                     ValueListenableBuilder<Map<String, dynamic>?>(
                       valueListenable: _walletStatsNotifier,
                       builder: (context, stats, _) {
-                        final balance = ((stats?['deposit_wallet'] ?? 0) + (stats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
-                        return _buildHeader(balance);
+                        return ValueListenableBuilder<Map<String, dynamic>?>(
+                          valueListenable: _userProfileNotifier,
+                          builder: (context, userProfile, _) {
+                            final balance = ((stats?['deposit_wallet'] ?? 0) + (stats?['winning_wallet'] ?? 0)).toStringAsFixed(2);
+                            return _buildHeader(balance, userProfile);
+                          },
+                        );
                       },
                     ),
                     
@@ -220,7 +228,7 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _buildHeader(String balance) {
+  Widget _buildHeader(String balance, Map<String, dynamic>? userProfile) {
     return Row(
       children: [
         // Profile Avatar
@@ -232,10 +240,11 @@ class _HomeTabState extends State<HomeTab> {
               shape: BoxShape.circle,
               gradient: StitchTheme.primaryGradient,
             ),
-            child: CircleAvatar(
+            child: StitchAvatar(
               radius: 22,
+              name: userProfile?['name'] ?? userProfile?['username'] ?? 'User',
+              avatarUrl: userProfile?['avatar_url'],
               backgroundColor: StitchTheme.surface,
-              child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
             ),
           ),
         ),

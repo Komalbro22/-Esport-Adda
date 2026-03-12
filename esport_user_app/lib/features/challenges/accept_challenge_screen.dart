@@ -32,7 +32,7 @@ class _AcceptChallengeScreenState extends State<AcceptChallengeScreen> {
 
       final results = await Future.wait([
         _supabase.from('challenges')
-            .select('*, creator:users!creator_id(username, fair_score), games(name)')
+            .select('*, creator:users!creator_id(username, fair_score, avatar_url), games(name)')
             .eq('id', widget.challengeId)
             .single(),
         _supabase.from('users').select('fair_score').eq('id', user.id).single(),
@@ -139,10 +139,11 @@ class _AcceptChallengeScreenState extends State<AcceptChallengeScreen> {
                     end: Alignment.bottomRight,
                   ),
                 ),
-                child: const CircleAvatar(
+                child: StitchAvatar(
                   radius: 35,
-                  backgroundColor: Color(0xFF1A1D2D),
-                  child: Icon(Icons.person, size: 40, color: Colors.white24),
+                  name: creator['username'] ?? 'User',
+                  avatarUrl: creator['avatar_url'],
+                  backgroundColor: const Color(0xFF1A1D2D),
                 ),
               ),
               Positioned(

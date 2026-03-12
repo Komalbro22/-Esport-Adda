@@ -113,7 +113,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildPlayerInfo(_challenge!['creator']['username'], 'Creator', _challenge!['creator']['avatar_url']),
+              _buildPlayerInfo(_challenge!['creator']['username'], 'Creator', _challenge!['creator']['avatar_url'], _challenge!['creator_id']),
               Column(
                 children: [
                    const Text('VS', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.deepPurpleAccent, fontSize: 24, letterSpacing: 2)),
@@ -125,7 +125,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                      ),
                 ],
               ),
-              _buildPlayerInfo(_challenge!['opponent']?['username'] ?? 'Waiting...', 'Opponent', _challenge!['opponent']?['avatar_url']),
+              _buildPlayerInfo(_challenge!['opponent']?['username'] ?? 'Waiting...', 'Opponent', _challenge!['opponent']?['avatar_url'], _challenge!['opponent_id']),
             ],
           ),
           const SizedBox(height: 24),
@@ -156,14 +156,17 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
     );
   }
 
-  Widget _buildPlayerInfo(String name, String label, String? avatarUrl) {
+  Widget _buildPlayerInfo(String name, String label, String? avatarUrl, String? userId) {
     return Column(
       children: [
-        CircleAvatar(
-          radius: 24, 
-          backgroundColor: Colors.white10, 
-          backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? CachedNetworkImageProvider(avatarUrl) : null,
-          child: avatarUrl == null || avatarUrl.isEmpty ? Text(name[0].toUpperCase()) : null,
+        GestureDetector(
+          onTap: userId != null ? () => context.push('/public_profile/$userId') : null,
+          child: StitchAvatar(
+            radius: 24,
+            name: name,
+            avatarUrl: avatarUrl,
+            backgroundColor: Colors.white10,
+          ),
         ),
         const SizedBox(height: 8),
         Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

@@ -24,7 +24,7 @@ class _FairPlayLeaderboardScreenState extends State<FairPlayLeaderboardScreen> {
   Future<void> _fetchLeaderboard() async {
     try {
       final data = await _supabase.from('users')
-          .select('username, fair_score, avatar_url')
+          .select('id, username, fair_score, avatar_url')
           .order('fair_score', ascending: false)
           .limit(50);
       
@@ -66,9 +66,13 @@ class _FairPlayLeaderboardScreenState extends State<FairPlayLeaderboardScreen> {
                   children: [
                     Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.w900, color: StitchTheme.primary)),
                     const SizedBox(width: 16),
-                    CircleAvatar(
-                      backgroundImage: player['avatar_url'] != null ? NetworkImage(player['avatar_url']) : null,
-                      child: player['avatar_url'] == null ? const Icon(Icons.person) : null,
+                    GestureDetector(
+                      onTap: () => context.push('/public_profile/${player['id']}'),
+                      child: StitchAvatar(
+                        radius: 20,
+                        name: player['username'] ?? 'User',
+                        avatarUrl: player['avatar_url'],
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text(player['username'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold))),
