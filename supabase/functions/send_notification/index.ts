@@ -22,11 +22,33 @@ serve(async (req) => {
         // Create admin client
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Auth check... (kept simplified for brevity here, mirroring original structure)
+        // 1. Auth Check - Allow System (Service Role) or Valid Admin user
         const token = authHeader?.replace(/^[Bb]earer /, '').trim();
-        let isSystemCall = token === supabaseServiceKey;
+        let isAuthorized = false;
+        let callerUser: any = null;
 
-        if (!isSystemCall && !authHeader) {
+        if (token === supabaseServiceKey) {
+            isAuthorized = true; // System call
+        } else if (token) {
+            // Verify JWT
+            const { data: { user }, error: authErr } = await supabaseAdmin.auth.getUser(token);
+            if (user) {
+                // Check if user is admin or super_admin
+                const { data: profile } = await supabaseAdmin
+                    .from('users')
+                    .select('role, is_blocked')
+                    .eq('id', user.id)
+                    .single();
+
+                if (profile && !profile.is_blocked && (profile.role === 'admin' || profile.role === 'super_admin')) {
+                    isAuthorized = true;
+                    callerUser = user;
+                }
+            }
+        }
+
+        if (!isAuthorized) {
+            console.error('Unauthorized notification attempt');
             return new Response(JSON.stringify({ error: 'Unauthorized' }), {
                 status: 401,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -36,16 +58,18 @@ serve(async (req) => {
         const payload = await req.json()
         const { user_id, title, body, type, related_id, tournament_id, is_broadcast } = payload
 
+        if (!title || !body) {
+            return new Response(JSON.stringify({ error: 'Title and body are required' }), {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
+
         let targetPlayerIds: string[] = []
         let targetUserIds: string[] = []
 
         if (is_broadcast) {
-            // OneSignal can send to "All Users" directly via segments, 
-            // but we'll still want to store in DB for history
-            const { data: users } = await supabaseAdmin
-                .from('users')
-                .select('id')
-
+            const { data: users } = await supabaseAdmin.from('users').select('id');
             if (users) targetUserIds = users.map(u => u.id);
         } else if (tournament_id) {
             const { data: participants } = await supabaseAdmin
@@ -72,12 +96,12 @@ serve(async (req) => {
             }
         }
 
-        // 1. Save Notification to DB (centralized history)
+        // 2. Save Notification to DB (centralized history)
         if (targetUserIds.length > 0) {
             const notificationsToInsert = targetUserIds.map(uid => ({
                 user_id: uid,
                 title,
-                message: body,
+                message: body, // schema is 'message' in newer migration, migration 20260314 ensures consistency
                 type: type || 'system',
                 reference_id: related_id || tournament_id
             }));
@@ -86,7 +110,7 @@ serve(async (req) => {
             if (dbError) console.error("DB Insert Error: ", dbError)
         }
 
-        // 2. Send via OneSignal
+        // 3. Send via OneSignal
         const oneSignalPayload: any = {
             app_id: ONESIGNAL_APP_ID,
             headings: { en: title },
@@ -99,7 +123,12 @@ serve(async (req) => {
         } else if (targetPlayerIds.length > 0) {
             oneSignalPayload.include_subscription_ids = targetPlayerIds;
         } else {
-            return new Response(JSON.stringify({ success: true, message: 'Saved to DB, but no active OneSignal players found.' }), {
+            console.log("Saved to DB, but no active OneSignal player IDs found for targets.");
+            return new Response(JSON.stringify({
+                success: true,
+                message: 'Saved to DB, but no active OneSignal subscriptions found for targets.',
+                saved_count: targetUserIds.length
+            }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             })
         }
@@ -114,6 +143,7 @@ serve(async (req) => {
         });
 
         const oneSignalData = await oneSignalRes.json();
+        console.log('OneSignal Response:', oneSignalData);
 
         return new Response(JSON.stringify({
             success: true,
@@ -124,6 +154,7 @@ serve(async (req) => {
         })
 
     } catch (error: any) {
+        console.error('Function Error:', error);
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

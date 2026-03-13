@@ -15,7 +15,6 @@ serve(async (req) => {
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // Try getting auth header with both capitalizations just in case
         const authHeader = req.headers.get('Authorization') || req.headers.get('authorization')
         if (!authHeader) throw new Error('Missing Authorization header')
 
@@ -28,8 +27,8 @@ serve(async (req) => {
             throw new Error('Unauthorized: Invalid JWT')
         }
 
-        const body = await req.json()
-        const { action, challenge_id, game_id, entry_fee, mode, rules, settings, min_fair_score } = body
+        const requestBody = await req.json()
+        const { action, challenge_id, game_id, entry_fee, mode, rules, settings, min_fair_score } = requestBody
 
         // Helper: Check if blocked
         async function isBlocked(uid: string, targetId: string) {
@@ -44,11 +43,11 @@ serve(async (req) => {
         // Helper: Wallet Deduction
         async function deductFromWallet(userId: string, amount: number, refId: string, type: string) {
             const { data: wallet } = await supabaseAdmin.from('user_wallets').select('*').eq('user_id', userId).single()
-            if (!wallet || (wallet.deposit_wallet + wallet.winning_wallet) < amount) throw new Error('Insufficient balance')
+            if (!wallet || (Number(wallet.deposit_wallet) + Number(wallet.winning_wallet)) < amount) throw new Error('Insufficient balance')
 
             let remaining = amount
-            let dep = wallet.deposit_wallet
-            let win = wallet.winning_wallet
+            let dep = Number(wallet.deposit_wallet)
+            let win = Number(wallet.winning_wallet)
             let depDed = 0, winDed = 0
 
             if (dep >= remaining) { depDed = remaining; dep -= remaining; remaining = 0; }
@@ -101,6 +100,15 @@ serve(async (req) => {
 
                 await deductFromWallet(user.id, challenge.entry_fee, challenge_id, 'challenge_entry')
 
+                // Update challenge status
+                const { error: acceptErr } = await supabaseAdmin.from('challenges').update({
+                    status: 'accepted',
+                    opponent_id: user.id,
+                    accepted_at: new Date().toISOString()
+                }).eq('id', challenge_id)
+
+                if (acceptErr) throw acceptErr
+
                 // Notify challenge creator
                 await supabaseAdmin.functions.invoke('send_notification', {
                     body: {
@@ -136,12 +144,20 @@ serve(async (req) => {
             }
 
             case 'enter_room_details': {
-                const { room_id, room_password } = body
+                const { room_id, room_password } = requestBody
                 const { data: challenge } = await supabaseAdmin.from('challenges').select('*').eq('id', challenge_id).single()
-                console.log(`Enter Room: ID=${challenge_id}, current_status=${challenge?.status}, user_id=${user.id}, creator_id=${challenge?.creator_id}`)
 
                 if (challenge.creator_id !== user.id) throw new Error('Only creator can enter room details')
                 if (challenge.status !== 'ready') throw new Error(`Challenge not ready (current status: ${challenge.status})`)
+
+                const { error: roomErr } = await supabaseAdmin.from('challenges').update({
+                    room_id,
+                    room_password,
+                    status: 'ongoing',
+                    room_ready_at: new Date().toISOString()
+                }).eq('id', challenge_id)
+
+                if (roomErr) throw roomErr
 
                 // Notify opponent
                 await supabaseAdmin.functions.invoke('send_notification', {
@@ -158,7 +174,7 @@ serve(async (req) => {
             }
 
             case 'submit_result': {
-                const { result, screenshot_url, video_url, screenshot_hash } = body
+                const { result, screenshot_url, video_url, screenshot_hash } = requestBody
                 const { data: challenge } = await supabaseAdmin.from('challenges').select('*').eq('id', challenge_id).single()
                 if (challenge.status !== 'ongoing') throw new Error('Match not ongoing')
 
@@ -194,13 +210,13 @@ serve(async (req) => {
                         const { error: completeErr } = await supabaseAdmin.from('challenges').update({ status: 'completed', winner_id: winnerId }).eq('id', challenge_id)
                         if (completeErr) throw completeErr
 
-                        // Fair Play Rewards for successful match (+2)
+                        // Fair Play Rewards
                         await supabaseAdmin.functions.invoke('manage_fair_play', {
                             body: {
                                 user_id: res1.user_id,
                                 amount: 2,
                                 reason: 'Fair match completed',
-                                actor_id: res2.user_id // Opponent is the actor
+                                actor_id: res2.user_id
                             }
                         })
                         await supabaseAdmin.functions.invoke('manage_fair_play', {
@@ -208,17 +224,17 @@ serve(async (req) => {
                                 user_id: res2.user_id,
                                 amount: 2,
                                 reason: 'Fair match completed',
-                                actor_id: res1.user_id // Opponent is the actor
+                                actor_id: res1.user_id
                             }
                         })
 
                     } else {
                         await supabaseAdmin.from('challenges').update({ status: 'dispute' }).eq('id', challenge_id)
 
-                        // Notify system/admin about dispute (if you have an admin user id or broadcast)
+                        // Notify admin about dispute
                         await supabaseAdmin.functions.invoke('send_notification', {
                             body: {
-                                is_broadcast: false, // We'll target specific admin roles usually
+                                is_broadcast: false,
                                 title: 'New Dispute!',
                                 body: `Conflict detected in match ${challenge_id}. Review required.`,
                                 type: 'admin',
@@ -226,36 +242,21 @@ serve(async (req) => {
                             }
                         })
                     }
-
-                    // Anti-Abuse: Alert if same players played 10+ matches today
-                    const today = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
-                    const { count: matchCount } = await supabaseAdmin.from('challenges')
-                        .select('*', { count: 'exact', head: true })
-                        .or(`and(creator_id.eq.${challenge.creator_id},opponent_id.eq.${challenge.opponent_id}),and(creator_id.eq.${challenge.opponent_id},opponent_id.eq.${challenge.creator_id})`)
-                        .eq('status', 'completed')
-                        .gte('created_at', today)
-
-                    if (matchCount && matchCount >= 10) {
-                        console.warn(`MATCH FARMING ALERT: Users ${challenge.creator_id} and ${challenge.opponent_id} completed ${matchCount} matches today.`)
-                    }
                 }
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             case 'handle_timeouts': {
-                // 1. Ready Timeout (5m)
                 const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
                 const { data: readyTimeouts } = await supabaseAdmin.from('challenges')
                     .select('*').eq('status', 'accepted').lt('accepted_at', fiveMinsAgo)
 
                 for (const c of (readyTimeouts || [])) {
-                    // Refund both
                     await deductFromWallet(c.creator_id, -c.entry_fee, c.id, 'challenge_refund')
                     await deductFromWallet(c.opponent_id, -c.entry_fee, c.id, 'challenge_refund')
                     await supabaseAdmin.from('challenges').update({ status: 'cancelled' }).eq('id', c.id)
                 }
 
-                // 2. Room Timeout (10m)
                 const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
                 const { data: roomTimeouts } = await supabaseAdmin.from('challenges')
                     .select('*').eq('status', 'ready').lt('accepted_at', tenMinsAgo)
@@ -266,15 +267,6 @@ serve(async (req) => {
                     await supabaseAdmin.from('challenges').update({ status: 'cancelled' }).eq('id', c.id)
                 }
 
-                // 3. Result Timeout (15m)
-                const fifteenMinsAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
-                const { data: resultTimeouts } = await supabaseAdmin.from('challenges')
-                    .select('*').eq('status', 'ongoing').lt('room_ready_at', fifteenMinsAgo)
-
-                for (const c of (resultTimeouts || [])) {
-                    await supabaseAdmin.from('challenges').update({ status: 'dispute' }).eq('id', c.id)
-                }
-
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
@@ -283,74 +275,40 @@ serve(async (req) => {
                 if (challenge.status === 'open') {
                     if (challenge.creator_id !== user.id) throw new Error('Unauthorized')
                     await supabaseAdmin.from('challenges').update({ status: 'cancelled' }).eq('id', challenge_id)
-                    // Refund creator
-                    const { data: wallet } = await supabaseAdmin.from('user_wallets').select('deposit_wallet').eq('user_id', user.id).single()
-                    await supabaseAdmin.from('user_wallets').update({ deposit_wallet: wallet.deposit_wallet + challenge.entry_fee }).eq('user_id', user.id)
-                    await supabaseAdmin.from('wallet_transactions').insert({ user_id: user.id, amount: challenge.entry_fee, type: 'challenge_refund', wallet_type: 'deposit', status: 'completed', reference_id: challenge_id })
-                } else if (challenge.status === 'accepted' || challenge.status === 'ready') {
-                    // Both must approve... simplified for now as mutual request
+                    await deductFromWallet(user.id, -challenge.entry_fee, challenge_id, 'challenge_refund')
+                } else {
                     throw new Error('Mutual cancellation required (Contact Admin)')
                 }
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
             case 'resolve_dispute': {
-                const { winner_id, resolution } = body // resolution: 'award_winner' or 'refund'
+                const { winner_id, resolution } = requestBody
                 const { data: challenge } = await supabaseAdmin.from('challenges').select('*').eq('id', challenge_id).single()
 
                 if (challenge.status !== 'dispute') throw new Error('Only disputed matches can be resolved')
 
                 if (resolution === 'award_winner') {
-                    // Calculate prize
                     const totalPot = challenge.entry_fee * 2
                     const commissionAmount = (totalPot * challenge.commission_percent) / 100
                     const prizeAmount = totalPot - commissionAmount
 
-                    // Update challenge
                     await supabaseAdmin.from('challenges').update({
                         status: 'completed',
                         winner_id: winner_id,
                         result_locked: true
                     }).eq('id', challenge_id)
 
-                    // Pay Winner
-                    const { error: prizeErr } = await supabaseAdmin.rpc('adjust_wallet_balance', {
+                    await supabaseAdmin.rpc('adjust_wallet_balance', {
                         p_user_id: winner_id,
                         p_amount: prizeAmount,
                         p_type: 'challenge_prize',
                         p_ref_id: challenge_id
                     })
-                    if (prizeErr) throw new Error(`Failed to credit winner: ${prizeErr.message}`)
-
-                    // Commission Transaction
-                    const { error: commErr } = await supabaseAdmin.from('wallet_transactions').insert({
-                        user_id: winner_id,
-                        amount: commissionAmount,
-                        type: 'challenge_commission',
-                        reference_id: challenge_id,
-                        status: 'success'
-                    })
-                    if (commErr) console.warn('Commission logging failed:', commErr)
-
                 } else if (resolution === 'refund') {
-                    // Refund both players
                     await supabaseAdmin.from('challenges').update({ status: 'cancelled', result_locked: true }).eq('id', challenge_id)
-
-                    const { error: ref1Err } = await supabaseAdmin.rpc('adjust_wallet_balance', {
-                        p_user_id: challenge.creator_id,
-                        p_amount: challenge.entry_fee,
-                        p_type: 'challenge_refund',
-                        p_ref_id: challenge_id
-                    })
-                    if (ref1Err) throw new Error(`Refund failed for creator: ${ref1Err.message}`)
-
-                    const { error: ref2Err } = await supabaseAdmin.rpc('adjust_wallet_balance', {
-                        p_user_id: challenge.opponent_id,
-                        p_amount: challenge.entry_fee,
-                        p_type: 'challenge_refund',
-                        p_ref_id: challenge_id
-                    })
-                    if (ref2Err) throw new Error(`Refund failed for opponent: ${ref2Err.message}`)
+                    await deductFromWallet(challenge.creator_id, -challenge.entry_fee, challenge_id, 'challenge_refund')
+                    await deductFromWallet(challenge.opponent_id, -challenge.entry_fee, challenge_id, 'challenge_refund')
                 }
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }

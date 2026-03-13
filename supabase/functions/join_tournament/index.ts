@@ -37,7 +37,6 @@ serve(async (req) => {
       })
     }
 
-    // Use supabaseAdmin (Service Role) to verify the token - this is the most robust way in Edge Functions
     const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
 
     if (authError || !user) {
@@ -56,7 +55,7 @@ serve(async (req) => {
     // 1. Fetch tournament details
     const { data: tournament, error: tourneyError } = await supabaseAdmin
       .from('tournaments')
-      .select('entry_fee, status, joined_slots, total_slots')
+      .select('title, entry_fee, status, joined_slots, total_slots')
       .eq('id', tournament_id)
       .single()
 
@@ -100,16 +99,16 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
-    const totalBalance = wallet.deposit_wallet + wallet.winning_wallet
+    const totalBalance = Number(wallet.deposit_wallet) + Number(wallet.winning_wallet)
     if (totalBalance < tournament.entry_fee) return new Response(JSON.stringify({ error: 'Wallet balance insufficient' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
     // 3. Deduct from wallet
-    let newDeposit = wallet.deposit_wallet
-    let newWinning = wallet.winning_wallet
-    let remainingFee = tournament.entry_fee
+    let newDeposit = Number(wallet.deposit_wallet)
+    let newWinning = Number(wallet.winning_wallet)
+    let remainingFee = Number(tournament.entry_fee)
 
     let depositDeducted = 0
     let winningDeducted = 0
@@ -126,18 +125,21 @@ serve(async (req) => {
       newWinning -= remainingFee
     }
 
-    // 4. Update wallet
+    // 4. Update wallet (FIX: Use user_id instead of non-existent id column)
     const { error: updateWalletError } = await supabaseAdmin
       .from('user_wallets')
       .update({ deposit_wallet: newDeposit, winning_wallet: newWinning })
-      .eq('id', wallet.id)
+      .eq('user_id', user.id)
 
-    if (updateWalletError) return new Response(JSON.stringify({ error: 'Failed to update wallet' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    if (updateWalletError) {
+      console.error('Wallet Update Error:', updateWalletError);
+      return new Response(JSON.stringify({ error: 'Failed to update wallet', details: updateWalletError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
 
-    // 5. Log transaction(s) accurately splitting deposit and winning deductions
+    // 5. Log transaction(s) accurately
     const txsToInsert = []
     if (depositDeducted > 0) {
       txsToInsert.push({
@@ -163,6 +165,7 @@ serve(async (req) => {
     if (txsToInsert.length > 0) {
       await supabaseAdmin.from('wallet_transactions').insert(txsToInsert)
     }
+
     // 6. Join tournament
     const { error: joinError } = await supabaseAdmin.from('joined_teams').insert({
       tournament_id: tournament_id,
@@ -179,8 +182,8 @@ serve(async (req) => {
     await supabaseAdmin.from('user_activity_logs').insert({
       user_id: user.id,
       activity_type: 'tournament_join',
-      description: `Joined tournament: ${tournament_id}`,
-      metadata: { tournament_id }
+      description: `Joined tournament: ${tournament.title}`,
+      metadata: { tournament_id, entry_fee: tournament.entry_fee }
     })
 
     // 7. Increment slots
@@ -190,6 +193,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error: any) {
+    console.error('Unexpected function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
