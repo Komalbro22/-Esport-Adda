@@ -10,7 +10,7 @@ dependencies:
   esport_core:
     path: ../esport_core
   firebase_core: ^4.5.0
-  firebase_messaging: ^16.1.2
+  onesignal_flutter: ^5.0.0
   flutter_local_notifications: ^18.0.1
   flutter:
     sdk: flutter

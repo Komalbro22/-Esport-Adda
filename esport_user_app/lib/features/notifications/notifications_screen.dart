@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -12,110 +12,139 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final _supabase = Supabase.instance.client;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _notifications = [];
 
-  Future<void> _markAsRead(String id) async {
-    await _supabase.from('notifications').update({'is_read': true}).eq('id', id);
+  @override
+  void initState() {
+    super.initState();
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await _supabase
+          .from('notifications')
+          .select()
+          .order('created_at', ascending: false);
+      
+      setState(() {
+        _notifications = List<Map<String, dynamic>>.from(response);
+        _isLoading = false;
+      });
+
+      // Mark all as read after viewing
+      await _markAllAsRead();
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _markAllAsRead() async {
+    final unreadIds = _notifications
+        .where((n) => n['is_read'] == false)
+        .map((n) => n['id'])
+        .toList();
+
+    if (unreadIds.isNotEmpty) {
+      try {
+        await _supabase
+            .from('notifications')
+            .update({'is_read': true})
+            .inFilter('id', unreadIds);
+      } catch (e) {
+        debugPrint('Error marking notifications as read: $e');
+      }
+    }
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'tournament':
+        return Icons.emoji_events;
+      case 'challenge':
+        return Icons.videogame_asset;
+      case 'wallet':
+        return Icons.account_balance_wallet;
+      case 'voucher':
+        return Icons.confirmation_number;
+      case 'fair_play':
+        return Icons.gavel;
+      case 'admin':
+        return Icons.admin_panel_settings;
+      default:
+        return Icons.notifications;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+        title: const Text('Notifications'),
+        centerTitle: true,
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _supabase
-            .from('notifications')
-            .stream(primaryKey: ['id'])
-            .eq('user_id', _supabase.auth.currentUser!.id)
-            .order('created_at', ascending: false),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: StitchLoading());
-          }
+      body: _isLoading
+          ? const Center(child: StitchLoading())
+          : _notifications.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications_none, size: 64, color: Colors.grey[600]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No notifications yet',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _fetchNotifications,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = _notifications[index];
+                      final bool isRead = notification['is_read'] ?? false;
+                      final DateTime createdAt = DateTime.parse(notification['created_at']);
 
-          if (snapshot.hasError) {
-            return const Center(child: Text('Error loading notifications', style: TextStyle(color: StitchTheme.error)));
-          }
-
-          final notifications = snapshot.data ?? [];
-
-          if (notifications.isEmpty) {
-            return const Center(
-              child: Text(
-                'No recent notifications.',
-                style: TextStyle(color: StitchTheme.textMuted),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final note = notifications[index];
-              final isRead = note['is_read'] as bool? ?? false;
-              final createdAt = DateTime.parse(note['created_at']).toLocal();
-              final timeString = DateFormat('MMM d, h:mm a').format(createdAt);
-
-              IconData iconData = Icons.notifications;
-              Color iconColor = StitchTheme.primary;
-
-              switch (note['type']) {
-                case 'deposit_status':
-                  iconData = Icons.account_balance_wallet;
-                  iconColor = note['title'].toString().contains('Approved') ? StitchTheme.success : StitchTheme.error;
-                  break;
-                case 'withdraw_status':
-                  iconData = Icons.money_off;
-                  iconColor = note['title'].toString().contains('Approved') ? StitchTheme.success : StitchTheme.error;
-                  break;
-                case 'broadcast':
-                  iconData = Icons.announcement;
-                  iconColor = StitchTheme.warning;
-                  break;
-                case 'tournament':
-                  iconData = Icons.sports_esports;
-                  iconColor = StitchTheme.accent;
-                  break;
-              }
-
-              return ListTile(
-                onTap: () {
-                  if (!isRead) _markAsRead(note['id']);
-                },
-                tileColor: isRead ? StitchTheme.surface : StitchTheme.surfaceHighlight.withOpacity(0.5),
-                leading: CircleAvatar(
-                  backgroundColor: StitchTheme.surfaceHighlight,
-                  child: Icon(iconData, color: iconColor),
-                ),
-                title: Text(
-                  note['title'] ?? 'Notification',
-                  style: TextStyle(
-                    color: StitchTheme.textMain,
-                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: StitchTheme.primary.withOpacity(0.1),
+                            child: Icon(_getIconForType(notification['type']), color: StitchTheme.primary),
+                          ),
+                          title: Text(
+                            notification['title'],
+                            style: TextStyle(
+                              fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 4),
+                              Text(notification['message']),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('dd MMM, hh:mm a').format(createdAt),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          onTap: () {
+                            // Deep linking logic based on notification['type'] and notification['reference_id']
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 4),
-                    Text(
-                      note['body'] ?? '',
-                      style: const TextStyle(color: StitchTheme.textMuted),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      timeString,
-                      style: const TextStyle(color: StitchTheme.textMuted, fontSize: 12),
-                    ),
-                  ],
-                ),
-                isThreeLine: true,
-              );
-            },
-          );
-        },
-      ),
     );
   }
 }

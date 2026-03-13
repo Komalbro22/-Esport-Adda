@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'features/notifications/notification_service.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
@@ -39,9 +36,7 @@ import 'features/dashboard/voucher_history_screen.dart';
 import 'features/profile/public_profile_screen.dart';
 
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-}
+// DELETED _firebaseMessagingBackgroundHandler as we move to OneSignal
 
 // User App Entry Point
 void main() async {
@@ -49,17 +44,10 @@ void main() async {
   
   if (!kIsWeb) {
     try {
-      await Firebase.initializeApp();
-      // Ensure messaging background handler is registered
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      
-      // Request permission and setup foreground listeners
-      await NotificationService().initialize();
+      await OneSignalService().initialize();
     } catch (e) {
-      debugPrint('Firebase initialization failed: $e');
+      debugPrint('OneSignal initialization failed: $e');
     }
-  } else {
-    debugPrint('Running on Web: Firebase Cloud Messaging bypassed as it requires specific Web Firebase options configuration.');
   }
 
   // Real values provided later, these are placeholder initialization

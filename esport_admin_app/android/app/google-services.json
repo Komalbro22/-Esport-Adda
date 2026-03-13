@@ -1,0 +1,48 @@
+{
+    "project_info": {
+        "project_number": "850141396037",
+        "project_id": "esport-adda-d61a7",
+        "storage_bucket": "esport-adda-d61a7.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:850141396037:android:99046759df114780e6b72c",
+                "android_client_info": {
+                    "package_name": "com.esportadda.admin"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyAICh0c0emMu2D3nOOKnWjoeXu_xqh5qks"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        },
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:850141396037:android:3b3490867edb2da1e6b72c",
+                "android_client_info": {
+                    "package_name": "com.esportadda.app"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyAICh0c0emMu2D3nOOKnWjoeXu_xqh5qks"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

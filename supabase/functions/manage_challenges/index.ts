@@ -101,10 +101,16 @@ serve(async (req) => {
 
                 await deductFromWallet(user.id, challenge.entry_fee, challenge_id, 'challenge_entry')
 
-                const { error: updErr } = await supabaseAdmin.from('challenges').update({
-                    opponent_id: user.id, status: 'accepted', players_joined: 2, accepted_at: new Date().toISOString()
-                }).eq('id', challenge_id)
-                if (updErr) throw updErr
+                // Notify challenge creator
+                await supabaseAdmin.functions.invoke('send_notification', {
+                    body: {
+                        user_id: challenge.creator_id,
+                        title: 'Challenge Accepted!',
+                        body: 'Your challenge has been accepted. Confirm ready to start.',
+                        type: 'challenge',
+                        related_id: challenge_id
+                    }
+                })
 
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
@@ -137,10 +143,17 @@ serve(async (req) => {
                 if (challenge.creator_id !== user.id) throw new Error('Only creator can enter room details')
                 if (challenge.status !== 'ready') throw new Error(`Challenge not ready (current status: ${challenge.status})`)
 
-                const { error: updErr } = await supabaseAdmin.from('challenges').update({
-                    room_id, room_password, status: 'ongoing', room_ready_at: new Date().toISOString()
-                }).eq('id', challenge_id)
-                if (updErr) throw updErr
+                // Notify opponent
+                await supabaseAdmin.functions.invoke('send_notification', {
+                    body: {
+                        user_id: challenge.opponent_id,
+                        title: 'Room Ready!',
+                        body: 'The room details are available. Join the match now.',
+                        type: 'challenge',
+                        related_id: challenge_id
+                    }
+                })
+
                 return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
             }
 
@@ -201,6 +214,17 @@ serve(async (req) => {
 
                     } else {
                         await supabaseAdmin.from('challenges').update({ status: 'dispute' }).eq('id', challenge_id)
+
+                        // Notify system/admin about dispute (if you have an admin user id or broadcast)
+                        await supabaseAdmin.functions.invoke('send_notification', {
+                            body: {
+                                is_broadcast: false, // We'll target specific admin roles usually
+                                title: 'New Dispute!',
+                                body: `Conflict detected in match ${challenge_id}. Review required.`,
+                                type: 'admin',
+                                related_id: challenge_id
+                            }
+                        })
                     }
 
                     // Anti-Abuse: Alert if same players played 10+ matches today

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +40,14 @@ void main() async {
     url: SupabaseConfig.url,
     anonKey: SupabaseConfig.anonKey,
   );
+
+  if (!kIsWeb) {
+    try {
+      await OneSignalService().initialize();
+    } catch (e) {
+      debugPrint('OneSignal initialization failed: $e');
+    }
+  }
 
   // If there's an existing session, pre-load permissions
   if (Supabase.instance.client.auth.currentSession != null) {

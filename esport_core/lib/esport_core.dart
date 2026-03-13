@@ -22,3 +22,4 @@ export 'services/auth_service.dart';
 export 'services/supabase_config.dart';
 export 'models/voucher_model.dart';
 export 'services/voucher_service.dart';
+export 'services/onesignal_service.dart';

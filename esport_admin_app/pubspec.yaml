@@ -9,6 +9,7 @@ environment:
 dependencies:
   esport_core:
     path: ../esport_core
+  onesignal_flutter: ^5.0.0
   flutter:
     sdk: flutter
   flutter_animate: ^4.5.2
