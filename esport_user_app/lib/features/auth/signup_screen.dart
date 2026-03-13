@@ -96,6 +96,23 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  children: [
+                    const Text('By continuing, you agree to our ', style: TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+                    GestureDetector(
+                      onTap: () => context.push('/legal/terms_and_conditions'),
+                      child: const Text('Terms', style: TextStyle(color: StitchTheme.primary, fontSize: 13, decoration: TextDecoration.underline)),
+                    ),
+                    const Text(' & ', style: TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+                    GestureDetector(
+                      onTap: () => context.push('/legal/privacy_policy'),
+                      child: const Text('Privacy Policy', style: TextStyle(color: StitchTheme.primary, fontSize: 13, decoration: TextDecoration.underline)),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
