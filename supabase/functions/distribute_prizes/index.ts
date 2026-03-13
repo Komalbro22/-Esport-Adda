@@ -133,17 +133,17 @@ serve(async (req) => {
                 // Get current wallet
                 const { data: wallet } = await supabaseAdmin
                     .from('user_wallets')
-                    .select('id, winning_wallet')
+                    .select('winning_wallet')
                     .eq('user_id', user_id)
                     .single()
 
                 if (wallet) {
                     const currentWinning = wallet.winning_wallet || 0
 
-                    // Update wallet
+                    // Update wallet - targeting by user_id correctly
                     await supabaseAdmin.from('user_wallets')
                         .update({ winning_wallet: currentWinning + totalPrize })
-                        .eq('id', wallet.id)
+                        .eq('user_id', user_id)
 
                     await supabaseAdmin.from('wallet_transactions').insert({
                         user_id: user_id,
