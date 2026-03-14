@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -248,9 +249,10 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
+                      radius: 28,
                       backgroundColor: StitchTheme.surfaceHighlight,
-                      backgroundImage: game['logo_url'] != null ? NetworkImage(game['logo_url']) : null,
-                      child: game['logo_url'] == null ? const Icon(Icons.sports_esports) : null,
+                      backgroundImage: game['logo_url'] != null ? CachedNetworkImageProvider(game['logo_url']) : null,
+                      child: game['logo_url'] == null ? const Icon(Icons.sports_esports, color: StitchTheme.primary) : null,
                     ),
                     title: Text(game['name'], style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
                     subtitle: Text(game['is_active'] ? 'Active' : 'Inactive', style: TextStyle(color: game['is_active'] ? StitchTheme.success : StitchTheme.error)),

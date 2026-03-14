@@ -26,18 +26,31 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw 'User not found';
 
-      // Generate a random referral code for the new user
-      final userCode = 'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+      // 1. Check if user already has a referral code (generated in OTP stage)
+      final profile = await Supabase.instance.client
+          .from('users')
+          .select('referral_code')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      // Update public.users record
-      await Supabase.instance.client.from('users').update({
+      final String userCode = profile?['referral_code'] ?? 
+          'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+
+      // 2. Update public.users record
+      await Supabase.instance.client.from('users').upsert({
+        'id': user.id,
         'name': _nameController.text.trim(),
         'username': _usernameController.text.trim(),
         'phone': _phoneController.text.trim(),
         'referral_code': userCode,
-      }).eq('id', user.id);
+      });
 
-      // Apply referral if given (Edge Function)
+      // 3. Sync OneSignal ID again to ensure it's captured now that records are established
+      try {
+        await OneSignalService().syncPlayerId();
+      } catch (_) {}
+
+      // 4. Apply referral if given (Edge Function)
       final refCode = _referralController.text.trim();
       if (refCode.isNotEmpty) {
         await Supabase.instance.client.functions.invoke(

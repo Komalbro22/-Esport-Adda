@@ -20,6 +20,11 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
   late TabController _tabController;
   bool _isLoading = true;
   List<Map<String, dynamic>> _tournaments = [];
+  bool _isLoadMoreRunning = false;
+  int _page = 0;
+  final int _pageSize = 20;
+  bool _hasNextPage = true;
+  final ScrollController _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
@@ -28,29 +33,55 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _fetchTournaments();
+    _scrollController.addListener(_loadMore);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchTournaments() async {
+  Future<void> _fetchTournaments({bool isLoadMore = false}) async {
     try {
-      final data = await _supabase
+      if (!isLoadMore) {
+        _page = 0;
+        _hasNextPage = true;
+      }
+
+      final query = _supabase
           .from('tournaments')
           .select('*, games(name, logo_url)')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(_page * _pageSize, (_page + 1) * _pageSize - 1);
+
+      final data = await query;
+      final List<Map<String, dynamic>> fetchedTournaments = List<Map<String, dynamic>>.from(data as List);
+
       if (mounted) {
         setState(() {
-          _tournaments = List<Map<String, dynamic>>.from(data);
+          if (isLoadMore) {
+            _tournaments.addAll(fetchedTournaments);
+          } else {
+            _tournaments = fetchedTournaments;
+          }
           _isLoading = false;
+          _hasNextPage = fetchedTournaments.length == _pageSize;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _loadMore() async {
+    if (_hasNextPage && !_isLoading && !_isLoadMoreRunning && _scrollController.position.extentAfter < 300) {
+      if (mounted) setState(() => _isLoadMoreRunning = true);
+      _page++;
+      await _fetchTournaments(isLoadMore: true);
+      if (mounted) setState(() => _isLoadMoreRunning = false);
     }
   }
 
@@ -103,12 +134,15 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         : activeGames.first['id'];
 
     String selectedType = source?['tournament_type'] ?? 'solo';
+    String selectedPrizeType = source?['prize_type'] ?? 'fixed';
+    
     final titleCtrl = TextEditingController(
         text: isCopying ? '${source!['title']} (Copy)' : (source?['title'] ?? ''));
     final entryFeeCtrl = TextEditingController(text: source?['entry_fee']?.toString() ?? '0');
     final perKillCtrl = TextEditingController(text: source?['per_kill_reward']?.toString() ?? '0');
     final slotsCtrl = TextEditingController(text: source?['total_slots']?.toString() ?? '100');
     final totalPrizeCtrl = TextEditingController(text: source?['total_prize_pool']?.toString() ?? '0');
+    final commissionCtrl = TextEditingController(text: source?['commission_percentage']?.toString() ?? '10');
     final bannerCtrl = TextEditingController(text: isCopying ? (source?['banner_url'] ?? '') : (source?['banner_url'] ?? ''));
     final prizeDescCtrl = TextEditingController(text: source?['prize_description'] ?? '');
     final rulesCtrl = TextEditingController(text: source?['rules'] ?? '');
@@ -122,10 +156,37 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
     final prizeConfigCtrl = TextEditingController(text: initialPrizeConfig);
 
+    String initialRankPercentages = '';
+    if (source?['rank_percentages'] != null) {
+      final Map rp = source!['rank_percentages'] as Map;
+      initialRankPercentages = rp.entries.map((e) => '${e.key}=${e.value}').join(', ');
+    }
+    final rankPercentagesCtrl = TextEditingController(text: initialRankPercentages.isEmpty ? '1=50, 2=20, 3=10' : initialRankPercentages);
+
+    void generateDescription() {
+      final fee = double.tryParse(entryFeeCtrl.text) ?? 0;
+      final perKill = double.tryParse(perKillCtrl.text) ?? 0;
+      final type = selectedPrizeType;
+      
+      String desc = 'Join this competitive ${selectedType.toUpperCase()} tournament and win big!\n\n';
+      desc += '• Entry Fee: ₹$fee\n';
+      if (perKill > 0) desc += '• Per Kill Reward: ₹$perKill\n';
+      
+      if (type == 'fixed') {
+        desc += '• Total Prize Pool: ₹${totalPrizeCtrl.text}\n';
+        desc += '• Prize Type: Fixed (Guaranteed Rewards)\n';
+      } else {
+        desc += '• Prize Type: Dynamic (Increases with Players)\n';
+        desc += '• Commission: ${commissionCtrl.text}%\n';
+      }
+      desc += '\nEnsure you read all the rules before joining. Good luck!';
+      prizeDescCtrl.text = desc;
+    }
+
     DateTime? selectedDate;
     TimeOfDay? selectedTime;
-
-    // Only pre-fill date when editing (not copying)
+    
+    // ... rest of the setup logic ...
     if (isEditing && source?['start_time'] != null) {
       final dt = DateTime.parse(source!['start_time']).toLocal();
       selectedDate = dt;
@@ -185,35 +246,12 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (isCopying)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.amber.withOpacity(0.3)),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.copy_rounded, color: Colors.amber, size: 16),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Copied tournament will be saved as UPCOMING regardless of original status.',
-                              style: TextStyle(color: Colors.amber, fontSize: 11),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
                   const Text('GAME CATEGORY', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 8),
                   _buildDropdown(games, selectedGameId, (v) => setDialogState(() => selectedGameId = v!)),
                   const SizedBox(height: 20),
 
-                  const Text('TOURNAMENT DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const Text('BASIC INFO', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 12),
                   StitchInput(label: 'Title', controller: titleCtrl, hintText: 'e.g. Pro Season 1'),
                   const SizedBox(height: 12),
@@ -228,14 +266,29 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                     const SizedBox(width: 12),
                     Expanded(child: StitchInput(label: 'Per Kill (₹)', controller: perKillCtrl, keyboardType: TextInputType.number)),
                   ]),
+
+                  const SizedBox(height: 20),
+                  const Text('PRIZE CONFIGURATION', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Total Prize Pool (₹)', controller: totalPrizeCtrl, keyboardType: TextInputType.number),
+                  _buildPrizeTypeDropdown(selectedPrizeType, (v) => setDialogState(() => selectedPrizeType = v!)),
                   const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(child: StitchInput(label: 'Map Name', controller: mapNameCtrl, hintText: 'e.g. Erangel')),
-                    const SizedBox(width: 12),
-                    Expanded(child: StitchInput(label: 'Game Mode', controller: modeCtrl, hintText: 'e.g. TPP')),
-                  ]),
+                  if (selectedPrizeType == 'fixed') ...[
+                    StitchInput(label: 'Total Prize Pool (₹)', controller: totalPrizeCtrl, keyboardType: TextInputType.number),
+                    const SizedBox(height: 12),
+                    StitchInput(label: 'Prize Config (1=500, 2=200)', controller: prizeConfigCtrl, hintText: '1=500, 2=200'),
+                  ] else ...[
+                    Row(children: [
+                       Expanded(child: StitchInput(label: 'Commission %', controller: commissionCtrl, keyboardType: TextInputType.number)),
+                       const SizedBox(width: 12),
+                       const Expanded(child: SizedBox()), // Placeholder
+                    ]),
+                    const SizedBox(height: 12),
+                    StitchInput(label: 'Rank Percentages (1=50, 2=20)', controller: rankPercentagesCtrl, hintText: '1=50, 2=20'),
+                    const SizedBox(height: 4),
+                    const Text('Sum of percentages should be <= 100', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10)),
+                  ],
+                  const SizedBox(height: 16),
+                  StitchButton(text: 'AUTO-GENERATE DESCRIPTION', isSecondary: true, onPressed: generateDescription),
 
                   const SizedBox(height: 20),
                   const Text('SCHEDULE', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
@@ -275,7 +328,13 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                   ),
 
                   const SizedBox(height: 20),
-                  const Text('ASSETS & PRIZES', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const Text('EXTRA DETAILS', style: TextStyle(color: StitchTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: StitchInput(label: 'Map Name', controller: mapNameCtrl, hintText: 'e.g. Erangel')),
+                    const SizedBox(width: 12),
+                    Expanded(child: StitchInput(label: 'Game Mode', controller: modeCtrl, hintText: 'e.g. TPP')),
+                  ]),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -288,26 +347,12 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
                           decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(10)),
                           child: IconButton(icon: const Icon(Icons.add_photo_alternate_rounded, color: StitchTheme.primary, size: 20), onPressed: () => pickAndUpload(setDialogState)),
                         ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(10)),
-                        child: IconButton(
-                          icon: const Icon(Icons.collections_rounded, color: StitchTheme.primary, size: 20),
-                          onPressed: () async {
-                            final selectedUrl = await context.push<String?>('/assets?selection=true');
-                            if (selectedUrl != null) setDialogState(() => bannerCtrl.text = selectedUrl);
-                          },
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
+                  StitchInput(label: 'Description', controller: prizeDescCtrl, maxLines: 4, hintText: 'Tournament description...'),
                   const SizedBox(height: 12),
-                  StitchInput(label: 'Description', controller: prizeDescCtrl, maxLines: 3, hintText: 'Enter tournament description...'),
-                  const SizedBox(height: 12),
-                  StitchInput(label: 'Rules', controller: rulesCtrl, maxLines: 4, hintText: 'Enter tournament rules...'),
-                  const SizedBox(height: 12),
-                  StitchInput(label: 'Prize Config (1=500, 2=200, 3=100)', controller: prizeConfigCtrl, maxLines: 2, hintText: '1=500, 2=200, 3=100'),
+                  StitchInput(label: 'Rules', controller: rulesCtrl, maxLines: 4, hintText: 'Tournament rules...'),
                   const SizedBox(height: 20),
                   SwitchListTile(
                     title: const Text('FEATURED', style: TextStyle(color: StitchTheme.primary, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
@@ -330,8 +375,9 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         }
 
         final dt = DateTime(selectedDate!.year, selectedDate!.month, selectedDate!.day, selectedTime!.hour, selectedTime!.minute).toUtc();
+        
         Map<String, dynamic>? rankPrizes;
-        if (prizeConfigCtrl.text.trim().isNotEmpty) {
+        if (selectedPrizeType == 'fixed' && prizeConfigCtrl.text.trim().isNotEmpty) {
           rankPrizes = {};
           for (var p in prizeConfigCtrl.text.split(',')) {
             final parts = p.split('=');
@@ -343,11 +389,34 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           }
         }
 
+        Map<String, dynamic>? rankPercentages;
+        if (selectedPrizeType == 'dynamic' && rankPercentagesCtrl.text.trim().isNotEmpty) {
+          rankPercentages = {};
+          double totalP = 0;
+          for (var p in rankPercentagesCtrl.text.split(',')) {
+            final parts = p.split('=');
+            if (parts.length == 2) {
+              final rank = parts[0].trim();
+              final percent = double.tryParse(parts[1].trim());
+              if (percent != null) {
+                rankPercentages[rank] = percent;
+                totalP += percent;
+              }
+            }
+          }
+          if (totalP > 100) {
+            StitchSnackbar.showError(context, 'Percentages cannot exceed 100%');
+            return;
+          }
+        }
+
         try {
           final payload = {
             'game_id': selectedGameId,
             'title': titleCtrl.text.trim(),
             'tournament_type': selectedType,
+            'prize_type': selectedPrizeType,
+            'commission_percentage': double.tryParse(commissionCtrl.text.trim()) ?? 10,
             'entry_fee': double.tryParse(entryFeeCtrl.text.trim()) ?? 0,
             'per_kill_reward': double.tryParse(perKillCtrl.text.trim()) ?? 0,
             'total_slots': int.tryParse(slotsCtrl.text.trim()) ?? 100,
@@ -358,14 +427,14 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
             'rules': rulesCtrl.text.trim().isEmpty ? null : rulesCtrl.text.trim(),
             'map_name': mapNameCtrl.text.trim().isEmpty ? null : mapNameCtrl.text.trim(),
             'mode': modeCtrl.text.trim().isEmpty ? null : modeCtrl.text.trim(),
-            'rank_prizes': rankPrizes,
+            'rank_prizes': selectedPrizeType == 'fixed' ? rankPrizes : null,
+            'rank_percentages': selectedPrizeType == 'dynamic' ? rankPercentages : null,
             'is_featured': isFeatured,
           };
 
           if (isEditing) {
             await _supabase.from('tournaments').update(payload).eq('id', tournament['id']);
           } else {
-            // New or Copy → always upcoming
             payload['status'] = 'upcoming';
             payload['joined_slots'] = 0;
             payload['created_by'] = _supabase.auth.currentUser!.id;
@@ -382,6 +451,7 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
         }
       },
     );
+
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -484,37 +554,47 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: _fetchTournaments,
-      color: StitchTheme.primary,
-      child: ListView.builder(
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: grouped.length,
-        itemBuilder: (context, groupIndex) {
-          final dateKey = grouped.keys.elementAt(groupIndex);
-          final items = grouped[dateKey]!;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                child: Row(
-                  children: [
-                    Text(dateKey, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 1)),
-                    const SizedBox(width: 8),
-                    Container(height: 1, width: 20, color: StitchTheme.surfaceHighlight),
-                    const Spacer(),
-                    Text('${items.length} Tournament${items.length > 1 ? 's' : ''}',
-                        style: const TextStyle(fontSize: 11, color: StitchTheme.primary, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              ...items.map((t) => _buildTournamentTile(t)),
-            ],
+    onRefresh: () => _fetchTournaments(),
+    color: StitchTheme.primary,
+    child: ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.only(bottom: 80),
+      itemCount: grouped.length + (_hasNextPage ? 1 : 0),
+      itemBuilder: (context, groupIndex) {
+        if (groupIndex == grouped.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: StitchLoading(),
+            ),
           );
-        },
-      ),
-    );
-  }
+        }
+
+        final dateKey = grouped.keys.elementAt(groupIndex);
+        final items = grouped[dateKey]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Row(
+                children: [
+                  Text(dateKey, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 1)),
+                  const SizedBox(width: 8),
+                  Container(height: 1, width: 20, color: StitchTheme.surfaceHighlight),
+                  const Spacer(),
+                  Text('${items.length} Tournament${items.length > 1 ? 's' : ''}',
+                      style: const TextStyle(fontSize: 11, color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            ...items.map((t) => _buildTournamentTile(t)),
+          ],
+        );
+      },
+    ),
+  );
+}
 
   Widget _buildTournamentTile(Map<String, dynamic> t) {
     final status = t['status']?.toString() ?? 'upcoming';
@@ -778,11 +858,31 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
           value: value,
           isExpanded: true,
           dropdownColor: StitchTheme.surface,
-          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 13),
           items: const [
             DropdownMenuItem(value: 'solo', child: Text('SOLO')),
             DropdownMenuItem(value: 'duo', child: Text('DUO')),
             DropdownMenuItem(value: 'squad', child: Text('SQUAD')),
+          ],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrizeTypeDropdown(String value, ValueChanged<String?> onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white.withOpacity(0.05))),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          dropdownColor: StitchTheme.surface,
+          style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold, fontSize: 13),
+          items: const [
+            DropdownMenuItem(value: 'fixed', child: Text('FIXED PRIZE POOL')),
+            DropdownMenuItem(value: 'dynamic', child: Text('DYNAMIC PRIZE POOL')),
           ],
           onChanged: onChanged,
         ),

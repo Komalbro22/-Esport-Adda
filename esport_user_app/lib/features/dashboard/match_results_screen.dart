@@ -115,7 +115,7 @@ class _MatchResultsScreenState extends State<MatchResultsScreen> {
                 final isMe = _myPerformance != null && team['id'] == _myPerformance!['id'];
 
                 // Podium Colors
-                Color borderColor = Colors.white.withValues(alpha: 0.1);
+                Color borderColor = Colors.white.withOpacity(0.1);
                 Color iconColor = Colors.white54;
                 IconData rankIcon = Icons.military_tech_rounded;
                 bool isTop3 = true;
@@ -132,7 +132,7 @@ class _MatchResultsScreenState extends State<MatchResultsScreen> {
                   iconColor = Colors.orangeAccent;
                 } else {
                   isTop3 = false;
-                  borderColor = Colors.white.withValues(alpha: 0.05);
+                  borderColor = Colors.white.withOpacity(0.05);
                 }
 
                 if (isMe) {
@@ -143,12 +143,12 @@ class _MatchResultsScreenState extends State<MatchResultsScreen> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isMe ? const Color(0xFF9042FF).withValues(alpha: 0.1) : const Color(0xFF1A1C24),
+                    color: isMe ? const Color(0xFF9042FF).withOpacity(0.1) : const Color(0xFF1A1C24),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: borderColor, width: 1.5),
                     boxShadow: isTop3 || isMe ? [
                       BoxShadow(
-                        color: borderColor.withValues(alpha: 0.2),
+                        color: borderColor.withOpacity(0.2),
                         blurRadius: 10,
                         spreadRadius: 1,
                       )
@@ -216,7 +216,7 @@ class _MatchResultsScreenState extends State<MatchResultsScreen> {
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF9042FF).withValues(alpha: 0.3),
+                color: const Color(0xFF9042FF).withOpacity(0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               )
@@ -267,18 +267,18 @@ class _PerformanceCircle extends StatelessWidget {
         color: const Color(0xFF1A1C24),
         shape: BoxShape.circle,
         border: Border.all(
-          color: isHighlight ? color.withValues(alpha: 0.5) : const Color(0xFF9042FF).withValues(alpha: 0.2),
+          color: isHighlight ? color.withOpacity(0.5) : const Color(0xFF9042FF).withOpacity(0.2),
           width: 2,
         ),
         boxShadow: isHighlight ? [
           BoxShadow(
-            color: color.withValues(alpha: 0.1),
+            color: color.withOpacity(0.1),
             blurRadius: 10,
             spreadRadius: 2,
           )
         ] : [
           BoxShadow(
-            color: const Color(0xFF9042FF).withValues(alpha: 0.05),
+            color: const Color(0xFF9042FF).withOpacity(0.05),
             blurRadius: 8,
             spreadRadius: 1,
           )

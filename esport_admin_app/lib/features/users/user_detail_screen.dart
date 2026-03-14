@@ -35,9 +35,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
 
   Future<void> _fetchData() async {
     try {
-      final user = await _supabase.from('users').select().eq('id', widget.userId).single();
-      final wallet = await _supabase.from('user_wallets').select().eq('user_id', widget.userId).single();
+      final user = await _supabase.from('users').select().eq('id', widget.userId).maybeSingle();
+      final wallet = await _supabase.from('user_wallets').select().eq('user_id', widget.userId).maybeSingle();
       
+      if (user == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
       final matches = await _supabase
           .from('joined_teams')
           .select('*, tournaments(title, games(name))')
@@ -54,7 +59,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
       Map<String, dynamic>? referredBy;
       if (user['referred_by'] != null) {
         try {
-          referredBy = await _supabase.from('users').select('id, username').eq('referral_code', user['referred_by']).single();
+          referredBy = await _supabase.from('users').select('id, username').eq('referral_code', user['referred_by']).maybeSingle();
         } catch (_) {}
       }
 
@@ -172,6 +177,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
       },
     );
   }
+  Future<void> _initializeWallet() async {
+    try {
+      await _supabase.from('user_wallets').insert({'user_id': widget.userId});
+      StitchSnackbar.showSuccess(context, 'Wallet initialized');
+      _fetchData();
+    } catch (e) {
+      StitchSnackbar.showError(context, 'Failed to initialize wallet');
+    }
+  }
   void _showSendNotification() {
     final titleCtrl = TextEditingController();
     final bodyCtrl = TextEditingController();
@@ -185,7 +199,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Send a targeted notification to @${_user!['username']}', 
+              Text('Send a targeted notification to @${_user!['username'] ?? 'User'}', 
                 style: const TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
               const SizedBox(height: 16),
               StitchInput(label: 'Title', controller: titleCtrl, hintText: 'e.g. Account Update'),
@@ -399,6 +413,33 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
   }
 
   Widget _buildWalletCard() {
+    if (_wallet == null) {
+      return StitchCard(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Wallet data missing', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('This user cannot join tournaments.', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11)),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: _initializeWallet,
+                child: const Text('INITIALIZE', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return StitchCard(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -671,7 +712,7 @@ class _ReferralHistoryList extends StatelessWidget {
                   children: [
                     const Icon(Icons.person_pin, color: StitchTheme.primary),
                     const SizedBox(width: 12),
-                    Text(referrer!['username'], style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.primary)),
+                    Text(referrer!['username'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.primary)),
                     const Spacer(),
                     const Icon(Icons.chevron_right, color: StitchTheme.textMuted),
                   ],
@@ -703,7 +744,7 @@ class _ReferralHistoryList extends StatelessWidget {
                       children: [
                         const Icon(Icons.person_outline, size: 16, color: StitchTheme.textMuted),
                         const SizedBox(width: 12),
-                        Text(ref['username'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(ref['username'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold)),
                         const Spacer(),
                         Text(
                           DateFormat('dd MMM yyyy').format(DateTime.parse(ref['created_at'])),

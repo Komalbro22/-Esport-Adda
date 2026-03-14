@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 class WebsiteManagementScreen extends StatefulWidget {
   const WebsiteManagementScreen({Key? key}) : super(key: key);
@@ -28,6 +30,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -69,6 +72,45 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
         setState(() => _isLoading = false);
         StitchSnackbar.showError(context, 'Failed to load website settings');
       }
+    }
+  }
+
+  Future<void> _uploadApk(bool isUserApp) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['apk'],
+    );
+
+    if (result == null || result.files.single.path == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final file = File(result.files.single.path!);
+      final fileName = '${isUserApp ? 'user_app' : 'admin_app'}_${DateTime.now().millisecondsSinceEpoch}.apk';
+      
+      // 1. Upload to Supabase Storage
+      await _supabase.storage.from('apks').upload(
+        fileName,
+        file,
+        fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+      );
+
+      // 2. Get Public URL
+      final publicUrl = _supabase.storage.from('apks').getPublicUrl(fileName);
+
+      setState(() {
+        if (isUserApp) {
+          _userApkController.text = publicUrl;
+        } else {
+          _adminApkController.text = publicUrl;
+        }
+      });
+
+      if (mounted) StitchSnackbar.showSuccess(context, 'APK Uploaded & Link Updated');
+    } catch (e) {
+      if (mounted) StitchSnackbar.showError(context, 'Failed to upload APK: $e');
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -139,11 +181,19 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
             _buildSection(
               title: 'APK Downloads',
               children: [
-                StitchInput(label: 'User App APK Link', controller: _userApkController),
+                _buildApkInput(
+                  label: 'User App APK Link', 
+                  controller: _userApkController,
+                  isUserApp: true,
+                ),
                 const SizedBox(height: 16),
                 StitchInput(label: 'User App Version', controller: _userVersionController, hintText: 'e.g. 1.0.5'),
                 const SizedBox(height: 24),
-                StitchInput(label: 'Admin App APK Link', controller: _adminApkController),
+                _buildApkInput(
+                  label: 'Admin App APK Link', 
+                  controller: _adminApkController,
+                  isUserApp: false,
+                ),
                 const SizedBox(height: 16),
                 StitchInput(label: 'Admin App Version', controller: _adminVersionController, hintText: 'e.g. 1.0.2'),
               ],
@@ -193,6 +243,30 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildApkInput({required String label, required TextEditingController controller, required bool isUserApp}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: StitchInput(label: label, controller: controller)),
+            const SizedBox(width: 12),
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: _isUploading 
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : IconButton(
+                    onPressed: () => _uploadApk(isUserApp),
+                    icon: const Icon(Icons.upload_file, color: StitchTheme.primary),
+                    tooltip: 'Upload APK',
+                  ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

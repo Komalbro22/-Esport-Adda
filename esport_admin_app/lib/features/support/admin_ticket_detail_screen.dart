@@ -213,11 +213,10 @@ class _AdminTicketDetailScreenState extends State<AdminTicketDetailScreen> {
       color: StitchTheme.surfaceHighlight.withOpacity(0.5),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 12,
-            backgroundColor: StitchTheme.surfaceHighlight,
-            backgroundImage: user?['avatar_url'] != null ? NetworkImage(user!['avatar_url']) : null,
-            child: user?['avatar_url'] == null ? const Icon(Icons.person, size: 12) : null,
+          StitchAvatar(
+            radius: 24,
+            name: user?['name'] ?? 'P',
+            avatarUrl: user?['avatar_url'],
           ),
           const SizedBox(width: 8),
           Text(user?['username'] ?? 'User', style: const TextStyle(fontSize: 12, color: StitchTheme.textMain)),

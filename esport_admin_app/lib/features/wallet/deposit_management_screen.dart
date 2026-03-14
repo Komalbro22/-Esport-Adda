@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class DepositManagementScreen extends StatefulWidget {
   final bool isTab;
@@ -192,7 +193,7 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
                             decoration: BoxDecoration(
                               color: StitchTheme.surfaceHighlight,
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                              border: Border.all(color: Colors.white.withOpacity(0.05)),
                             ),
                             child: Row(
                               children: [
@@ -226,7 +227,7 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
                               width: double.infinity,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(image: NetworkImage(req['screenshot_url']), fit: BoxFit.cover)
+                                image: DecorationImage(image: CachedNetworkImageProvider(req['screenshot_url']), fit: BoxFit.cover)
                               ),
                               child: const Center(child: Icon(Icons.zoom_in, color: Colors.white, size: 32)),
                             ),

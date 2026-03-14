@@ -263,7 +263,7 @@ class _HomeTabState extends State<HomeTab> {
       decoration: BoxDecoration(
         color: StitchTheme.surface,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: IconButton(
         icon: const Icon(Icons.notifications_rounded, color: Color(0xFF94A3B8), size: 22),
@@ -281,7 +281,7 @@ class _HomeTabState extends State<HomeTab> {
         decoration: BoxDecoration(
           color: StitchTheme.surface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
         ),
         child: Row(
           children: [
@@ -307,7 +307,7 @@ class _HomeTabState extends State<HomeTab> {
         width: 320,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.5), width: 1.5),
+          border: Border.all(color: StitchTheme.primary.withOpacity(0.5), width: 1.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
@@ -332,8 +332,8 @@ class _HomeTabState extends State<HomeTab> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.1),
-                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withOpacity(0.1),
+                    Colors.black.withOpacity(0.3),
                   ],
                 ),
               ),
@@ -391,7 +391,7 @@ class _HomeTabState extends State<HomeTab> {
                       height: 4,
                       child: LinearProgressIndicator(
                         value: progress,
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
+                        backgroundColor: Colors.white.withOpacity(0.1),
                         valueColor: const AlwaysStoppedAnimation<Color>(StitchTheme.primary),
                       ),
                     ),
@@ -437,7 +437,7 @@ class _HomeTabState extends State<HomeTab> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
                 ),
               ),
             ),
@@ -456,7 +456,7 @@ class _HomeTabState extends State<HomeTab> {
                     color: Colors.deepPurpleAccent,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
-                      BoxShadow(color: Colors.deepPurpleAccent.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2)),
+                      BoxShadow(color: Colors.deepPurpleAccent.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
                   ),
                   child: Row(
@@ -486,7 +486,7 @@ class _HomeTabState extends State<HomeTab> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withValues(alpha: 0.5), size: 12),
+                Icon(Icons.arrow_forward_ios_rounded, color: Colors.white.withOpacity(0.5), size: 12),
               ],
             ),
           ),

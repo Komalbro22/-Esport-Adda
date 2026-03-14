@@ -147,14 +147,10 @@ class _AdminManagementScreenState extends State<AdminManagementScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
+              StitchAvatar(
                 radius: 24,
-                backgroundColor: StitchTheme.surfaceHighlight,
-                backgroundImage: admin['avatar_url'] != null ? NetworkImage(admin['avatar_url']) : null,
-                child: admin['avatar_url'] == null
-                    ? Icon(isSuperAdmin ? Icons.shield_rounded : Icons.admin_panel_settings_rounded,
-                        color: isSuperAdmin ? Colors.amber : StitchTheme.primary)
-                    : null,
+                name: admin['full_name'] ?? 'A',
+                avatarUrl: admin['avatar_url'],
               ),
               const SizedBox(width: 12),
               Expanded(

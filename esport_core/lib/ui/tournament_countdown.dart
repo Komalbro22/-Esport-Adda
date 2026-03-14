@@ -5,11 +5,15 @@ import 'stitch_theme.dart';
 class TournamentCountdown extends StatefulWidget {
   final DateTime startTime;
   final VoidCallback? onTimerFinished;
+  final bool isCompact;
+  final String? status;
 
   const TournamentCountdown({
     Key? key,
     required this.startTime,
     this.onTimerFinished,
+    this.isCompact = false,
+    this.status,
   }) : super(key: key);
 
   @override
@@ -55,16 +59,36 @@ class _TournamentCountdownState extends State<TournamentCountdown> {
   @override
   Widget build(BuildContext context) {
     if (_timeLeft == Duration.zero) {
+      final label = widget.status == 'completed' ? 'COMPLETED' : 'ONGOING';
+      final color = widget.status == 'completed' ? StitchTheme.success : StitchTheme.error;
+      
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: StitchTheme.error.withOpacity(0.1),
+          color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: StitchTheme.error.withOpacity(0.5)),
+          border: Border.all(color: color.withOpacity(0.5)),
         ),
-        child: const Text(
-          'STARTED',
-          style: TextStyle(color: StitchTheme.error, fontWeight: FontWeight.bold, fontSize: 12),
+        child: Text(
+          label,
+          style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: widget.isCompact ? 10 : 12),
+        ),
+      );
+    }
+
+    if (widget.isCompact) {
+      final hours = _timeLeft.inHours.toString().padLeft(2, '0');
+      final mins = (_timeLeft.inMinutes % 60).toString().padLeft(2, '0');
+      final secs = (_timeLeft.inSeconds % 60).toString().padLeft(2, '0');
+      
+      return Text(
+        '${hours}h ${mins}m ${secs}s',
+        style: const TextStyle(
+          color: StitchTheme.primary,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          fontFamily: 'monospace',
+          letterSpacing: 0.5,
         ),
       );
     }
@@ -72,8 +96,10 @@ class _TournamentCountdownState extends State<TournamentCountdown> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildTimeBox(_timeLeft.inDays.toString(), 'DAYS'),
-        _buildDivider(),
+        if (_timeLeft.inDays > 0) ...[
+          _buildTimeBox(_timeLeft.inDays.toString(), 'DAYS'),
+          _buildDivider(),
+        ],
         _buildTimeBox((_timeLeft.inHours % 24).toString().padLeft(2, '0'), 'HRS'),
         _buildDivider(),
         _buildTimeBox((_timeLeft.inMinutes % 60).toString().padLeft(2, '0'), 'MINS'),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'website_management_screen.dart';
 import 'package:esport_core/services/imgbb_service.dart';
@@ -300,7 +301,7 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
       decoration: BoxDecoration(
         color: StitchTheme.surfaceHighlight,
         borderRadius: BorderRadius.circular(12),
-        image: url != null ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover) : null,
+        image: url != null ? DecorationImage(image: CachedNetworkImageProvider(url), fit: BoxFit.cover) : null,
       ),
       child: url == null ? const Icon(Icons.image, color: StitchTheme.textMuted, size: 30) : null,
     );

@@ -199,7 +199,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1C24),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
                 child: Column(
                   children: [
@@ -226,7 +226,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 '${_tournament!['tournament_type'].toString().toUpperCase()} • ${_tournament!['games']['name']?.toString() ?? 'GAME'}',
-                                style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.5)),
+                                style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.5)),
                               ),
                             ],
                           ),
@@ -242,12 +242,12 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Entry Fee', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                            Text('Entry Fee', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
                             const SizedBox(height: 4),
                             Row(
                               children: [
                                 Text('₹${_tournament!['entry_fee']}', style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.w900, fontSize: 16)),
-                                Text(' / player', style: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 11)),
+                                Text(' / player', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
                               ],
                             ),
                           ],
@@ -255,7 +255,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('Prize Pool', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                            Text('Prize Pool', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
                             const SizedBox(height: 4),
                             Text('₹${_tournament!['total_prize_pool'] ?? 0}', style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w900, fontSize: 16)),
                           ],
@@ -321,7 +321,7 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1C24),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
                 child: Column(
                   children: [
@@ -424,7 +424,7 @@ class _CustomInput extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF1A1C24),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(color: Colors.white.withOpacity(0.05)),
           ),
           child: Row(
             children: [
@@ -437,7 +437,7 @@ class _CustomInput extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                   decoration: InputDecoration(
                     hintText: hintText,
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3), fontSize: 14, fontWeight: FontWeight.w400),
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 14, fontWeight: FontWeight.w400),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,

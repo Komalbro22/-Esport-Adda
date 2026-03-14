@@ -537,7 +537,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('PRIZE CONFIGURATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 2)),
-                          if (status != 'completed')
+                          if (status != 'completed' && t['prize_type'] != 'dynamic')
                             TextButton.icon(
                               icon: const Icon(Icons.edit_note_rounded, color: StitchTheme.primary, size: 20),
                               label: const Text('EDIT', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 12)),
@@ -548,10 +548,41 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                       const SizedBox(height: 12),
                       StitchCard(
                         padding: const EdgeInsets.all(20),
-                        child: Text(
-                          _formatRankPrizesString(t['rank_prizes'] ?? {}).isEmpty ? 'No prizes configured. Set Rank=Amount (e.g. 1=500, 2=200)' : _formatRankPrizesString(t['rank_prizes'] ?? {}),
-                          style: const TextStyle(color: StitchTheme.textMain, fontSize: 14, height: 1.5, fontFamily: 'monospace'),
-                        )
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  t['prize_type'] == 'dynamic' ? Icons.trending_up_rounded : Icons.account_balance_wallet_rounded, 
+                                  size: 16, 
+                                  color: StitchTheme.primary
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  (t['prize_type'] ?? 'fixed').toString().toUpperCase() + ' PRIZE POOL',
+                                  style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (t['prize_type'] == 'dynamic') ...[
+                               Text('Commission: ${t['commission_percentage'] ?? 10}%', style: const TextStyle(color: StitchTheme.textMain, fontSize: 13, fontWeight: FontWeight.bold)),
+                               const SizedBox(height: 8),
+                               const Text('Rank Percentages:', style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold)),
+                               const SizedBox(height: 4),
+                               Text(
+                                  _formatRankPrizesString(t['rank_percentages'] ?? {}).isEmpty ? 'None configured' : _formatRankPrizesString(t['rank_percentages'] ?? {}),
+                                  style: const TextStyle(color: StitchTheme.textMain, fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                               ),
+                            ] else ...[
+                               Text(
+                                  _formatRankPrizesString(t['rank_prizes'] ?? {}).isEmpty ? 'No prizes configured. Set Rank=Amount (e.g. 1=500, 2=200)' : _formatRankPrizesString(t['rank_prizes'] ?? {}),
+                                  style: const TextStyle(color: StitchTheme.textMain, fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                               ),
+                            ],
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 32),

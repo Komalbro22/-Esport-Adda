@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 class UserManagementScreen extends StatefulWidget {
@@ -71,9 +72,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   void _applyFilters() {
     _filteredUsers = _users.where((user) {
       final matchesSearch = _searchQuery.isEmpty || 
-          (user['username']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (user['email']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-          (user['id']?.toString().toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+        (user['username']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        (user['email']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        (user['id']?.toString() ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
       
       final matchesFilter = _filterStatus == 'all' || 
           (_filterStatus == 'active' && user['is_blocked'] == false) ||
@@ -146,7 +147,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                 CircleAvatar(
                                   radius: 24,
                                   backgroundColor: StitchTheme.surfaceHighlight,
-                                  backgroundImage: user['avatar_url'] != null ? NetworkImage(user['avatar_url']) : null,
+                                  backgroundImage: user['avatar_url'] != null ? CachedNetworkImageProvider(user['avatar_url']) : null,
                                   child: user['avatar_url'] == null ? const Icon(Icons.person, color: StitchTheme.primary) : null,
                                 ),
                                 const SizedBox(width: 16),

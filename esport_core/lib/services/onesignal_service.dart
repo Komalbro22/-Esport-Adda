@@ -44,7 +44,10 @@ class OneSignalService {
         try {
           await Supabase.instance.client
               .from('users')
-              .update({'onesignal_player_id': playerId})
+              .update({
+                'onesignal_player_id': playerId,
+                'fcm_token': playerId, // Sync to both columns to ensure it works
+              })
               .eq('id', user.id);
           debugPrint('OneSignal Player ID synced: $playerId');
         } catch (e) {

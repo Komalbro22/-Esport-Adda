@@ -93,25 +93,51 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (!mounted) return;
 
       if (widget.reason == OTPReason.signup) {
-        // Check if user is already in public.users (might be a re-signup or late completion)
         final user = Supabase.instance.client.auth.currentUser;
-        final profile = await Supabase.instance.client
-            .from('users')
-            .select()
-            .eq('id', user?.id ?? '')
-            .maybeSingle();
+        if (user != null) {
+          // Check if user already exists in public.users
+          final existing = await Supabase.instance.client
+              .from('users')
+              .select('username')
+              .eq('id', user.id)
+              .maybeSingle();
 
-        if (profile == null || profile['username'] == null) {
-          if (mounted) context.go('/complete-profile');
-        } else {
-          if (mounted) context.go('/dashboard');
+          // Generate a random referral code immediately so it's never NULL
+          final String userCode = 'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+          
+          await Supabase.instance.client.from('users').upsert({
+            'id': user.id,
+            'email': user.email,
+            'referral_code': existing?['referral_code'] ?? userCode,
+            // REMOVED automatic random username assignment to force profile completion UI
+          }, onConflict: 'id');
+
+          // Sync OneSignal Player ID immediately after verification
+          try {
+            await OneSignalService().syncPlayerId();
+          } catch (e) {
+            debugPrint('Failed to sync OneSignal on signup: $e');
+          }
+
+          await Supabase.instance.client.from('user_wallets').upsert({
+            'user_id': user.id,
+          }, onConflict: 'user_id');
+
+          if (existing == null || existing['username'] == null) {
+            if (mounted) context.go('/complete-profile');
+          } else {
+            if (mounted) context.go('/dashboard');
+          }
         }
       } else if (widget.reason == OTPReason.reset) {
         // Reset: Navigate to update password screen
         context.push('/reset-password');
       } else {
         // Login: Proceed to dashboard
-        context.go('/dashboard');
+        try {
+          await OneSignalService().syncPlayerId();
+        } catch (_) {}
+        if (mounted) context.go('/dashboard');
       }
     } catch (e) {
       if (mounted) StitchSnackbar.showError(context, 'Invalid or expired OTP');
@@ -167,11 +193,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     decoration: InputDecoration(
                       counterText: '',
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      fillColor: Colors.white.withOpacity(0.08),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),

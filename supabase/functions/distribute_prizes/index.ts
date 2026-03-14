@@ -90,7 +90,7 @@ serve(async (req) => {
 
         const { data: tournament } = await supabaseAdmin
             .from('tournaments')
-            .select('per_kill_reward, rank_prizes, status, title')
+            .select('per_kill_reward, rank_prizes, status, title, prize_type, commission_percentage, rank_percentages, entry_fee, joined_slots')
             .eq('id', tournament_id)
             .single()
 
@@ -103,7 +103,18 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
 
+        const prizeType = tournament.prize_type || 'fixed'
         const rankPrizes = tournament.rank_prizes || {}
+        const rankPercentages = tournament.rank_percentages || {}
+        const commission = tournament.commission_percentage || 10
+        const entryFee = tournament.entry_fee || 0
+        const totalJoined = tournament.joined_slots || 0
+
+        // Calculate dynamic pool if needed
+        let dynamicPool = 0
+        if (prizeType === 'dynamic') {
+            dynamicPool = totalJoined * entryFee * (1 - commission / 100)
+        }
 
         // Fetch results from DB
         const { data: results } = await supabaseAdmin
@@ -124,9 +135,17 @@ serve(async (req) => {
             if (is_prize_distributed) continue;
 
             const rankKey = rank.toString();
-            const rankPrize = (rankPrizes[rankKey] as number) || 0;
+            let rankPrize = 0
+
+            if (prizeType === 'dynamic') {
+                const percent = (rankPercentages[rankKey] as number) || 0
+                rankPrize = dynamicPool * (percent / 100)
+            } else {
+                rankPrize = (rankPrizes[rankKey] as number) || 0
+            }
+
             const killPrize = kills * (tournament.per_kill_reward || 0);
-            const totalPrize = rankPrize + killPrize;
+            const totalPrize = Math.floor(rankPrize + killPrize); // Floor to avoid decimal issues in wallet
 
             // 1. Update stats and add winnings
             if (totalPrize > 0) {

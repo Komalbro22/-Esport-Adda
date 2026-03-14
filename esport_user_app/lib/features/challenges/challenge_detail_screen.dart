@@ -146,7 +146,7 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withOpacity(0.3),
                 colorBlendMode: BlendMode.darken,
               ),
             ),

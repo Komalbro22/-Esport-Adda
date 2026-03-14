@@ -390,7 +390,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
               gradient: LinearGradient(
                 colors: [
                   StitchTheme.primary,
-                  StitchTheme.primary.withValues(alpha: 0.8),
+                  StitchTheme.primary.withOpacity(0.8),
                   const Color(0xFF00D1FF), // A subtle blue hint for depth
                 ],
                 begin: Alignment.topLeft,
@@ -399,7 +399,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
               borderRadius: BorderRadius.circular(32),
               boxShadow: [
                 BoxShadow(
-                  color: StitchTheme.primary.withValues(alpha: 0.25),
+                  color: StitchTheme.primary.withOpacity(0.25),
                   blurRadius: 40,
                   offset: const Offset(0, 15),
                 )
@@ -446,7 +446,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1A1A),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.15)),
+                border: Border.all(color: StitchTheme.primary.withOpacity(0.15)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.2),
@@ -460,7 +460,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: StitchTheme.primary.withValues(alpha: 0.1),
+                      color: StitchTheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.confirmation_number_rounded, color: StitchTheme.primary, size: 22),
@@ -535,13 +535,13 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
             decoration: BoxDecoration(
               color: StitchTheme.surfaceHighlight,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              border: Border.all(color: Colors.white.withOpacity(0.05)),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: StitchTheme.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.1), shape: BoxShape.circle),
                   child: const Icon(Icons.support_agent_rounded, color: StitchTheme.primary),
                 ),
                 const SizedBox(width: 16),
@@ -733,8 +733,8 @@ class _BalanceSubCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isHighlight 
-            ? StitchTheme.primary.withValues(alpha: 0.3) 
-            : Colors.white.withValues(alpha: 0.05),
+            ? StitchTheme.primary.withOpacity(0.3) 
+            : Colors.white.withOpacity(0.05),
           width: isHighlight ? 1.5 : 1,
         ),
       ),

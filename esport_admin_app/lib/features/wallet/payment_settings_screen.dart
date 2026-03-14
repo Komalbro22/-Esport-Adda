@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
@@ -205,7 +206,7 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
                             width: 2,
                           ),
                           image: _qrCodeUrl != null && _qrCodeUrl!.isNotEmpty
-                              ? DecorationImage(image: NetworkImage(_qrCodeUrl!), fit: BoxFit.cover)
+                              ? DecorationImage(image: CachedNetworkImageProvider(_qrCodeUrl!), fit: BoxFit.cover)
                               : null,
                         ),
                         child: _qrCodeUrl == null || _qrCodeUrl!.isEmpty

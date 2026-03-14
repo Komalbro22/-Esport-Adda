@@ -137,11 +137,10 @@ class _SupportManagementScreenState extends State<SupportManagementScreen> with 
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: StitchTheme.surfaceHighlight,
-                backgroundImage: user?['avatar_url'] != null ? NetworkImage(user!['avatar_url']) : null,
-                child: user?['avatar_url'] == null ? const Icon(Icons.person, size: 14) : null,
+              StitchAvatar(
+                radius: 20,
+                name: user?['name'] ?? 'P',
+                avatarUrl: user?['avatar_url'],
               ),
               const SizedBox(width: 8),
               Expanded(

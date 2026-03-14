@@ -29,6 +29,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _fetchMetrics() async {
     try {
+      // Check cache first
+      final cachedMetrics = CacheService.get<Map<String, dynamic>>('admin_metrics');
+      final cachedSettings = CacheService.get<Map<String, dynamic>>('app_settings');
+
+      if (cachedMetrics != null && cachedSettings != null) {
+        if (mounted) {
+          setState(() {
+            _updateStateFromMetrics(cachedMetrics, cachedSettings);
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       final response = await Future.wait<dynamic>([
         _supabase.rpc('get_admin_metrics'),
         _supabase.from('app_settings').select().limit(1).maybeSingle(),
@@ -37,21 +51,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final metrics = response[0] as Map<String, dynamic>;
       final settings = response[1] as Map<String, dynamic>?;
 
+      // Update cache
+      CacheService.set('admin_metrics', metrics, duration: const Duration(minutes: 2));
+      if (settings != null) {
+        CacheService.set('app_settings', settings, duration: const Duration(minutes: 5));
+      }
+
       if (mounted) {
         setState(() {
-          _totalUsers = metrics['total_users'] ?? 0;
-          _activeTournaments = metrics['active_tournaments'] ?? 0;
-          _pendingDeposits = metrics['pending_deposits'] ?? 0;
-          _pendingWithdraws = metrics['pending_withdraws'] ?? 0;
-          _openTickets = metrics['open_tickets'] ?? 0;
-          _pendingDisputes = metrics['pending_disputes'] ?? 0;
-          _appSettings = settings;
+          _updateStateFromMetrics(metrics, settings);
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _updateStateFromMetrics(Map<String, dynamic> metrics, Map<String, dynamic>? settings) {
+    _totalUsers = metrics['total_users'] ?? 0;
+    _activeTournaments = metrics['active_tournaments'] ?? 0;
+    _pendingDeposits = metrics['pending_deposits'] ?? 0;
+    _pendingWithdraws = metrics['pending_withdraws'] ?? 0;
+    _openTickets = metrics['open_tickets'] ?? 0;
+    _pendingDisputes = metrics['pending_disputes'] ?? 0;
+    _appSettings = settings;
   }
 
   @override
