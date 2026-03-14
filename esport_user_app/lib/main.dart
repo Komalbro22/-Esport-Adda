@@ -34,6 +34,7 @@ import 'features/dashboard/voucher_categories_screen.dart';
 import 'features/dashboard/voucher_amounts_screen.dart';
 import 'features/dashboard/voucher_history_screen.dart';
 import 'features/profile/public_profile_screen.dart';
+import 'features/profile/redeem_code_screen.dart';
 
 @pragma('vm:entry-point')
 // DELETED _firebaseMessagingBackgroundHandler as we move to OneSignal
@@ -227,6 +228,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/complete-profile',
       builder: (context, state) => const ProfileCompletionScreen(),
+    ),
+    GoRoute(
+      path: '/redeem_code',
+      builder: (context, state) => const RedeemCodeScreen(),
     ),
   ],
 );

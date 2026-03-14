@@ -226,6 +226,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _buildNavCard('PLAYERS', Icons.group_rounded, '/users'),
                             _buildNavCard('FINANCES', Icons.account_balance_rounded, '/finances'),
                             _buildNavCard('VOUCHERS', Icons.card_giftcard_rounded, '/vouchers', color: Colors.purple),
+                            _buildNavCard('PROMO CODES', Icons.confirmation_number_rounded, '/promo_codes', color: Colors.pinkAccent),
                              _buildNavCard('SUPPORT', Icons.support_agent_rounded, '/support', badge: _openTickets),
                              _buildNavCard('DISPUTE CENTER', Icons.gavel_rounded, '/disputes', badge: _pendingDisputes, color: Colors.orange),
                              _buildNavCard('COMMUNITY', Icons.campaign_rounded, '/send_notification'),

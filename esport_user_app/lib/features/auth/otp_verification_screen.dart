@@ -98,19 +98,32 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
           // Check if user already exists in public.users
           final existing = await Supabase.instance.client
               .from('users')
-              .select('username')
+              .select('id, referral_code, username')
               .eq('id', user.id)
               .maybeSingle();
 
           // Generate a random referral code immediately so it's never NULL
           final String userCode = 'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
           
-          await Supabase.instance.client.from('users').upsert({
+          final Map<String, dynamic> updates = {
             'id': user.id,
             'email': user.email,
             'referral_code': existing?['referral_code'] ?? userCode,
-            // REMOVED automatic random username assignment to force profile completion UI
-          }, onConflict: 'id');
+          };
+
+          // If we have signupData (new flow), apply it
+          if (widget.signupData != null) {
+            updates['name'] = widget.signupData!['name'];
+            updates['username'] = widget.signupData!['username'];
+            updates['phone'] = widget.signupData!['phone'];
+            
+            // Check for referral by
+            if (widget.signupData!['referred_by'] != null && widget.signupData!['referred_by'].toString().isNotEmpty) {
+              updates['referred_by'] = widget.signupData!['referred_by'];
+            }
+          }
+
+          await Supabase.instance.client.from('users').upsert(updates, onConflict: 'id');
 
           // Sync OneSignal Player ID immediately after verification
           try {
@@ -123,11 +136,26 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             'user_id': user.id,
           }, onConflict: 'user_id');
 
-          if (existing == null || existing['username'] == null) {
-            if (mounted) context.go('/complete-profile');
-          } else {
-            if (mounted) context.go('/dashboard');
+          // If we applied a referral, trigger the bonus
+          if (widget.signupData != null && widget.signupData!['referred_by'] != null && widget.signupData!['referred_by'].toString().isNotEmpty) {
+            try {
+              await Supabase.instance.client.functions.invoke(
+                'apply_referral_bonus',
+                body: {
+                  'referral_code': widget.signupData!['referred_by'],
+                  'new_user_id': user.id
+                },
+                headers: {
+                  'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
+                  'apikey': SupabaseConfig.anonKey,
+                },
+              );
+            } catch (e) {
+              debugPrint('Referral bonus application failed: $e');
+            }
           }
+
+          if (mounted) context.go('/dashboard');
         }
       } else if (widget.reason == OTPReason.reset) {
         // Reset: Navigate to update password screen
@@ -136,11 +164,32 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         // Login: Proceed to dashboard
         try {
           await OneSignalService().syncPlayerId();
+          
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user != null) {
+            final profile = await Supabase.instance.client
+                .from('users')
+                .select('username')
+                .eq('id', user.id)
+                .maybeSingle();
+            
+            if (profile == null || profile['username'] == null) {
+              if (mounted) context.go('/complete-profile');
+              return;
+            }
+          }
         } catch (_) {}
         if (mounted) context.go('/dashboard');
       }
+    } on AuthException catch (e) {
+      if (mounted) {
+        // More specific error message if possible
+        String msg = 'Invalid or expired OTP';
+        if (e.message.contains('expired')) msg = 'OTP has expired. Please resend.';
+        StitchSnackbar.showError(context, msg);
+      }
     } catch (e) {
-      if (mounted) StitchSnackbar.showError(context, 'Invalid or expired OTP');
+      if (mounted) StitchSnackbar.showError(context, 'Verification failed: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

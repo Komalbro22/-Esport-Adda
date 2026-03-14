@@ -16,6 +16,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
   String _referralCode = '';
   int _totalReferrals = 0;
   double _earnings = 0;
+  List<Map<String, dynamic>> _referredUsers = [];
 
   @override
   void initState() {
@@ -29,15 +30,14 @@ class _ReferralScreenState extends State<ReferralScreen> {
       if (userId == null) return;
 
       final userData = await _supabase.from('users').select('referral_code').eq('id', userId).single();
+      final myCode = userData['referral_code'];
       
-      // Count referrals
-      final referralResponse = await _supabase
+      // Fetch referred users list
+      final referredResponse = await _supabase
           .from('users')
-          .select('id')
-          .eq('referred_by', userData['referral_code'])
-          .count(CountOption.exact);
-      
-      final totalReferrals = referralResponse.count ?? 0;
+          .select('username, name, created_at')
+          .eq('referred_by', myCode)
+          .order('created_at', ascending: false);
       
       // Calculate earnings from transactions
       final earningsResponse = await _supabase
@@ -53,8 +53,9 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
       if (mounted) {
         setState(() {
-          _referralCode = userData['referral_code'] ?? 'N/A';
-          _totalReferrals = totalReferrals;
+          _referralCode = myCode ?? 'N/A';
+          _referredUsers = List<Map<String, dynamic>>.from(referredResponse);
+          _totalReferrals = _referredUsers.length;
           _earnings = totalEarnings;
           _isLoading = false;
         });
@@ -143,10 +144,110 @@ class _ReferralScreenState extends State<ReferralScreen> {
                       StitchSnackbar.showSuccess(context, 'Invite message copied to clipboard!');
                     },
                   ),
+                  
+                  const SizedBox(height: 48),
+                  
+                  // Referrals List
+                  Row(
+                    children: [
+                      const Text(
+                        'MY REFERRALS',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: StitchTheme.textMuted,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '$_totalReferrals Users',
+                        style: const TextStyle(fontSize: 12, color: StitchTheme.primary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  if (_referredUsers.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 40),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: StitchTheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.people_alt_outlined, size: 32, color: StitchTheme.textMuted),
+                          SizedBox(height: 12),
+                          Text('No referrals yet', style: TextStyle(color: StitchTheme.textMuted)),
+                        ],
+                       ),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _referredUsers.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final user = _referredUsers[index];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: StitchTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.05)),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: StitchTheme.primary.withOpacity(0.1),
+                                child: Text(
+                                  (user['username'] ?? 'U')[0].toUpperCase(),
+                                  style: const TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      user['username'] ?? 'User',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: StitchTheme.textMain),
+                                    ),
+                                    Text(
+                                      _formatDate(user['created_at']),
+                                      style: const TextStyle(fontSize: 12, color: StitchTheme.textMuted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Text(
+                                'Joined',
+                                style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
     );
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (_) {
+      return '';
+    }
   }
 
   Widget _buildStatItem(String label, String value, IconData icon) {

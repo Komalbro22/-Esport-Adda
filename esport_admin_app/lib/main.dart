@@ -32,6 +32,7 @@ import 'features/users/fair_play_score_logs_screen.dart';
 import 'features/challenges/challenge_analytics_screen.dart';
 import 'features/challenges/challenge_management_screen.dart';
 import 'features/vouchers/voucher_management_screen.dart';
+import 'features/promo/promo_management_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -245,6 +246,13 @@ final _router = GoRouter(
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.canManageChallenges,
         child: const ChallengeManagementScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/promo_codes',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin,
+        child: const PromoManagementScreen(),
       ),
     ),
   ],

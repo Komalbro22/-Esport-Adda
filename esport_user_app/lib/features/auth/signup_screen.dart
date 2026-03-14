@@ -15,21 +15,48 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _referralController = TextEditingController();
   bool _isLoading = false;
+
   Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
     
     setState(() => _isLoading = true);
     try {
       final email = _emailController.text.trim();
+      final username = _usernameController.text.trim();
+
+      // Check if username is already taken
+      final existingUser = await Supabase.instance.client
+          .from('users')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+      if (existingUser != null) {
+        if (mounted) {
+          StitchSnackbar.showError(context, 'Username already taken. Please choose another.');
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
+
       await AuthService.signInWithOtp(email);
       
       if (mounted) {
         context.push('/otp', extra: {
           'email': email,
           'reason': OTPReason.signup,
-          'signupData': null, // We'll collect profile data AFTER verification as per user request
+          'signupData': {
+            'name': _nameController.text.trim(),
+            'username': username,
+            'phone': _phoneController.text.trim(),
+            'referred_by': _referralController.text.trim(),
+          },
         });
       }
     } on AuthException catch (e) {
@@ -51,7 +78,7 @@ class _SignupScreenState extends State<SignupScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         child: Form(
           key: _formKey,
           child: Column(
@@ -76,12 +103,49 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: Column(
                   children: [
                     StitchInput(
+                      label: 'Full Name',
+                      controller: _nameController,
+                      prefixIcon: const Icon(Icons.person_outline),
+                      hintText: 'e.g. Komal Cheema',
+                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Username',
+                      controller: _usernameController,
+                      prefixIcon: const Icon(Icons.alternate_email),
+                      hintText: 'Choose a unique username',
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return 'Required';
+                        if (val.length < 3) return 'Too short';
+                        if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(val)) return 'Letters, numbers, and underscores only';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
                       label: 'Email Address',
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: const Icon(Icons.email_outlined),
                       hintText: 'Enter your email',
                       validator: (val) => val == null || !val.contains('@') ? 'Invalid email' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Phone Number',
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                      hintText: 'e.g. +91 9876543210',
+                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    StitchInput(
+                      label: 'Referral Code (Optional)',
+                      controller: _referralController,
+                      prefixIcon: const Icon(Icons.card_giftcard_outlined),
+                      hintText: 'Enter referral code',
                     ),
                     const SizedBox(height: 32),
                     SizedBox(
