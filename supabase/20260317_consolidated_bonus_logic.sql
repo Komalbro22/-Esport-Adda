@@ -9,7 +9,19 @@ BEGIN
     END IF;
 END $$;
 
--- 2. Create/Update Atomic Wallet Increment Functions
+-- 2. Update wallet_transactions type check constraint
+-- This allows 'promo_code' and 'signup_bonus' as valid transaction types.
+DO $$ 
+BEGIN
+    ALTER TABLE public.wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_type_check;
+    ALTER TABLE public.wallet_transactions ADD CONSTRAINT wallet_transactions_type_check 
+    CHECK (type IN ('deposit', 'withdraw', 'tournament_entry', 'tournament_win', 'referral_bonus', 'challenge_entry', 'challenge_prize', 'challenge_refund', 'challenge_commission', 'promo_code', 'signup_bonus', 'other'));
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Could not update wallet_transactions_type_check: %', SQLERRM;
+END $$;
+
+-- 3. Create/Update Atomic Wallet Increment Functions
 CREATE OR REPLACE FUNCTION public.increment_deposit_wallet(u_id UUID, amt NUMERIC)
 RETURNS void AS $$
 BEGIN
@@ -39,7 +51,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. Automatic Signup Bonus Trigger
+-- 4. Automatic Signup Bonus Trigger
 -- This trigger gives the signup bonus as soon as a wallet is created for a new user.
 CREATE OR REPLACE FUNCTION public.handle_new_user_signup_bonus()
 RETURNS TRIGGER AS $$
@@ -50,9 +62,7 @@ BEGIN
     SELECT signup_bonus INTO v_signup_bonus FROM public.app_settings LIMIT 1;
     v_signup_bonus := COALESCE(v_signup_bonus, 10); -- Default to 10 if not set
 
-    -- Only award if the initial insert results in a balance (handled by increment function usually)
-    -- But since wallets are sometimes created with 0 first, we check if it's a fresh creation or if we want to force it.
-    -- BETTER: AWARD DIRECTLY ON INSERT IF deposit_wallet is 0
+    -- Award if it's a fresh wallet creation with 0 balance
     IF (NEW.deposit_wallet = 0 AND NEW.winning_wallet = 0) THEN
         NEW.deposit_wallet := v_signup_bonus;
         
@@ -76,7 +86,7 @@ BEFORE INSERT ON public.user_wallets
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user_signup_bonus();
 
--- 4. Permissions
+-- 5. Permissions
 GRANT EXECUTE ON FUNCTION public.increment_deposit_wallet(UUID, NUMERIC) TO service_role;
 GRANT EXECUTE ON FUNCTION public.increment_winning_wallet(UUID, NUMERIC) TO service_role;
 GRANT EXECUTE ON FUNCTION public.increment_promo_usage(UUID) TO service_role;

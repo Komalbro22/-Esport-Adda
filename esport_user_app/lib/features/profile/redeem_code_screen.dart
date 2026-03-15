@@ -82,8 +82,9 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
         }
       }
     } catch (e) {
+      debugPrint('Promo redemption error: $e');
       if (mounted) {
-        StitchSnackbar.showError(context, 'An unexpected error occurred');
+        StitchSnackbar.showError(context, 'Error: ${e.toString()}');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
