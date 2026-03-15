@@ -150,7 +150,11 @@ serve(async (req) => {
         })
 
     } catch (err: any) {
-        return new Response(JSON.stringify({ error: 'Internal server error', details: err.message }), {
+        console.error('Redemption Error:', err);
+        return new Response(JSON.stringify({
+            error: err.message || 'Internal server error',
+            details: err.details || err.hint || null
+        }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })

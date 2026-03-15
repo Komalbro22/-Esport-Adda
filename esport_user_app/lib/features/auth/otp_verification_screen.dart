@@ -132,6 +132,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             debugPrint('Failed to sync OneSignal on signup: $e');
           }
 
+          // Wallet creation is now primarily handled by the DB trigger to ensure 
+          // signup bonuses are awarded atomically. We still do a safety upsert.
           await Supabase.instance.client.from('user_wallets').upsert({
             'user_id': user.id,
           }, onConflict: 'user_id');

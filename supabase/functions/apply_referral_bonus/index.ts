@@ -164,6 +164,10 @@ serve(async (req) => {
 
         return new Response(JSON.stringify({ success: true, bonus: receiverBonus }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     } catch (err: any) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        console.error('Referral Processing Error:', err);
+        return new Response(JSON.stringify({
+            error: err.message || 'Processing failed',
+            details: err.details || err.hint || null
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 })
