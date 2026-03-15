@@ -82,7 +82,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final type = widget.reason == OTPReason.reset ? OtpType.recovery : OtpType.email;
+      final type = widget.reason == OTPReason.reset 
+          ? OtpType.recovery 
+          : OtpType.email; // Passwordless OTP always uses OtpType.email in Supabase
       
       await AuthService.verifyOTP(
         email: widget.email,
@@ -102,13 +104,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               .eq('id', user.id)
               .maybeSingle();
 
-          // Generate a random referral code immediately so it's never NULL
-          final String userCode = 'ESD${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+          // Generate a unique 5-character referral code (ESD + 5 chars)
+          final String userCode = AuthService.generateReferralCode();
           
           final Map<String, dynamic> updates = {
             'id': user.id,
             'email': user.email,
             'referral_code': existing?['referral_code'] ?? userCode,
+            'role': 'player',
+            'created_at': DateTime.now().toUtc().toIso8601String(),
           };
 
           // If we have signupData (new flow), apply it
@@ -132,28 +136,34 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
             debugPrint('Failed to sync OneSignal on signup: $e');
           }
 
-          // Wallet creation is now primarily handled by the DB trigger to ensure 
-          // signup bonuses are awarded atomically. We still do a safety upsert.
-          await Supabase.instance.client.from('user_wallets').upsert({
-            'user_id': user.id,
-          }, onConflict: 'user_id');
-
-          // If we applied a referral, trigger the bonus
-          if (widget.signupData != null && widget.signupData!['referred_by'] != null && widget.signupData!['referred_by'].toString().isNotEmpty) {
+          // Wallet creation & Signup Bonus
+          // We only create the wallet here if there's NO referral code.
+          // If there is a referral code, the Edge Function will create it atomically.
+          final String? referralUsed = widget.signupData?['referred_by'];
+          
+          if (referralUsed == null || referralUsed.isEmpty) {
+            try {
+              // This insert will trigger 'tr_signup_bonus_val' adding the signup reward
+              await Supabase.instance.client.from('user_wallets').insert({'user_id': user.id});
+            } catch (e) {
+              debugPrint('Wallet creation error (might already exist): $e');
+            }
+          } else {
+            // Apply referral - This will internally create the wallet and trigger signup bonus too
             try {
               await Supabase.instance.client.functions.invoke(
                 'apply_referral_bonus',
                 body: {
-                  'referral_code': widget.signupData!['referred_by'],
+                  'referral_code': referralUsed,
                   'new_user_id': user.id
-                },
-                headers: {
-                  'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
-                  'apikey': SupabaseConfig.anonKey,
                 },
               );
             } catch (e) {
-              debugPrint('Referral bonus application failed: $e');
+              debugPrint('Referral reward failed: $e');
+              // Fallback: Ensure wallet is created even if referral bonus failed
+              try {
+                await Supabase.instance.client.from('user_wallets').upsert({'user_id': user.id});
+              } catch (_) {}
             }
           }
 

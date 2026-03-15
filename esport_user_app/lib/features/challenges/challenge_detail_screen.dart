@@ -211,10 +211,6 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
           'action': 'confirm_ready',
           'challenge_id': widget.challengeId,
         },
-        headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-        },
       );
       if (response.status != 200) throw Exception(response.data['error']);
       StitchSnackbar.showSuccess(context, 'Ready confirmed!');
@@ -262,10 +258,6 @@ class _ChallengeDetailScreenState extends State<ChallengeDetailScreen> {
           'challenge_id': widget.challengeId,
           'room_id': id,
           'room_password': pass,
-        },
-        headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
         },
       );
       if (response.status != 200) throw Exception(response.data['error'] ?? 'Room creation failed');

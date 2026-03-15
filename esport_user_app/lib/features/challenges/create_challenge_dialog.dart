@@ -347,10 +347,6 @@ class _CreateChallengeDialogState extends State<CreateChallengeDialog> {
           'rules': _rulesController.text.trim(),
           'settings': _settingsController.text.trim(),
         },
-        headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-        },
       );
 
       if (response.status != 200) throw Exception(response.data['error'] ?? 'Failed to create challenge');

@@ -59,10 +59,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
             'referral_code': refCode,
             'new_user_id': user.id
           },
-          headers: {
-            'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ''}',
-            'apikey': SupabaseConfig.anonKey,
-          },
         );
       }
 

@@ -409,10 +409,6 @@ class _AcceptChallengeScreenState extends State<AcceptChallengeScreen> {
       final response = await _supabase.functions.invoke(
         'manage_challenges',
         body: { 'action': 'accept_challenge', 'challenge_id': widget.challengeId },
-        headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-        },
       );
 
       if (response.status != 200) throw Exception(response.data['error'] ?? 'Failed to join');

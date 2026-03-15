@@ -12,18 +12,26 @@ class AuthService {
     );
   }
 
+  /// Sends a 6-digit OTP to the user's email for both Login and Signup.
+  static Future<void> signInWithOtp(String email) async {
+    await _client.auth.signInWithOtp(
+      email: email,
+      shouldCreateUser: true, // This allows new users to register via OTP
+    );
+  }
+
+  /// Generates a unique 5-character referral code (ESD + 5 chars).
+  static String generateReferralCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Cleaned alphanumeric (no I, O, 0, 1)
+    final random = DateTime.now().microsecondsSinceEpoch;
+    final suffix = List.generate(5, (index) => chars[(random + index) % chars.length]).join();
+    return 'ESD$suffix';
+  }
+
   /// Updates the current user's password.
   static Future<void> updatePassword(String newPassword) async {
     await _client.auth.updateUser(
       UserAttributes(password: newPassword),
-    );
-  }
-
-  /// Sends a 6-digit OTP to the user's email.
-  static Future<void> signInWithOtp(String email) async {
-    await _client.auth.signInWithOtp(
-      email: email,
-      shouldCreateUser: true, // Allow signup via OTP
     );
   }
 

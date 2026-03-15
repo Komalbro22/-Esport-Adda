@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, Authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -25,23 +25,35 @@ serve(async (req) => {
             console.error('CRITICAL: SERVICE_ROLE_KEY is missing in environment variables')
         }
 
-        // Create admin client with service role
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+        // 1. Create a client using the user's token for verification
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: { Authorization: authHeader }
+            }
+        })
 
         // Verify user JWT explicitly
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token)
+        const token = authHeader.replace(/^[Bb]earer /, '').trim();
+        const { data: { user }, error: verifyError } = await supabaseClient.auth.getUser(token)
 
         if (verifyError || !user) {
-            console.error('JWT Verification Failed:', verifyError?.message || 'No user returned', verifyError)
-            return new Response(JSON.stringify({
-                error: 'Unauthorized',
-                message: verifyError?.message || 'Invalid or expired token'
-            }), {
-                status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
+            // Check for service key internal call
+            if (token === supabaseServiceKey) {
+                console.log('Internal system call with Service Key');
+            } else {
+                console.error('JWT Verification Failed:', verifyError?.message || 'No user returned', verifyError)
+                return new Response(JSON.stringify({
+                    error: 'Unauthorized',
+                    message: verifyError?.message || 'Invalid or expired token'
+                }), {
+                    status: 401,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                })
+            }
         }
+
+        // 2. Create admin client with service role for DB operations
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
         // Check admin role
         const { data: adminCheck, error: roleError } = await supabaseAdmin
@@ -69,20 +81,23 @@ serve(async (req) => {
         const newStatus = approved ? 'approved' : 'rejected'
 
         if (approved) {
-            // Only deduct winnings wallet, ensure it has enough
+            // Money was already deducted when the user created the request.
+            // We just need to mark it as approved.
+            console.log(`Withdrawal ${request_id} approved. No further deduction needed.`);
+        } else {
+            // Rejection: Refund the money back to the winning wallet
             const { data: wallet } = await supabaseAdmin
                 .from('user_wallets')
                 .select('winning_wallet')
                 .eq('user_id', request.user_id)
                 .single()
 
-            if (!wallet || wallet.winning_wallet < request.amount) {
-                return new Response(JSON.stringify({ error: 'Insufficient winning balance' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-            }
-
+            const currentWinning = wallet?.winning_wallet || 0
             await supabaseAdmin.from('user_wallets')
-                .update({ winning_wallet: wallet.winning_wallet - request.amount })
+                .update({ winning_wallet: currentWinning + request.amount })
                 .eq('user_id', request.user_id)
+            
+            console.log(`Withdrawal ${request_id} rejected. Refunded ₹${request.amount} to user ${request.user_id}`);
         }
 
         // Update request

@@ -499,7 +499,7 @@ class _ParticipantsTabState extends State<_ParticipantsTab> {
     try {
       final query = _supabase
           .from('joined_teams')
-          .select('users(id, name, username, avatar_url)')
+          .select('team_data, users(id, name, username, avatar_url)')
           .eq('tournament_id', widget.tournamentId)
           .order('created_at', ascending: true)
           .range(_page * _pageSize, (_page + 1) * _pageSize - 1);
@@ -571,26 +571,45 @@ class _ParticipantsTabState extends State<_ParticipantsTab> {
         }
 
         final user = _participants[index]['users'];
+        final List<dynamic>? teamData = _participants[index]['team_data'] as List<dynamic>?;
+        
         if (user == null) return const SizedBox.shrink();
+
+        // Find the leader/primary player's gaming info
+        String ign = 'N/A';
+        String uid = 'N/A';
+        if (teamData != null && teamData.isNotEmpty) {
+          final leader = teamData.firstWhere((p) => p['is_leader'] == 'true' || p['is_leader'] == true, orElse: () => teamData.first);
+          ign = leader['name']?.toString() ?? 'N/A';
+          uid = leader['uid']?.toString() ?? 'N/A';
+        }
         
         return Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFF1F222A),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withOpacity(0.05)),
           ),
           child: Row(
             children: [
-              StitchAvatar(radius: 24, name: user['name'] ?? 'P', avatarUrl: user['avatar_url']),
+              StitchAvatar(radius: 26, name: user['name'] ?? 'P', avatarUrl: user['avatar_url']),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user['name'] ?? 'Player', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text(user['name'] ?? 'Player', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
                     const SizedBox(height: 2),
-                    Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                    Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _SmallBadge(label: 'IGN', value: ign, color: Colors.cyanAccent),
+                        const SizedBox(width: 8),
+                        _SmallBadge(label: 'UID', value: uid, color: Colors.purpleAccent),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -794,6 +813,39 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.2));
+  }
+}
+
+class _SmallBadge extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _SmallBadge({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(color: color.withOpacity(0.6), fontSize: 9, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            value,
+            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+    );
   }
 }
 

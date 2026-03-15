@@ -634,7 +634,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
             }
             final tx = _transactions[index];
             final type = tx['type'].toString();
-            final isCredit = ['deposit', 'tournament_win', 'referral_bonus'].contains(type);
+            final isCredit = ['deposit', 'tournament_win', 'referral_bonus', 'signup_bonus'].contains(type);
             final status = tx['status']?.toString() ?? 'completed';
             final isPending = status == 'pending';
             

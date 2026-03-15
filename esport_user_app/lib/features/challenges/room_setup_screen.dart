@@ -227,10 +227,6 @@ class _RoomSetupScreenState extends State<RoomSetupScreen> {
           'room_id': _roomIdController.text.trim(),
           'room_pass': _passwordController.text.trim(),
         },
-        headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-        },
       );
 
       if (response.status != 200) throw Exception(response.data['error'] ?? 'Failed to submit');

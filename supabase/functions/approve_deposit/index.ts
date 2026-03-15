@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, Authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -23,23 +23,21 @@ serve(async (req) => {
         }
 
         const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-        // Create admin client for verification and DB operations
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
+        // 1. Create a client using the user's token for verification (pattern and settings from distribute_prizes)
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: {
+                headers: { Authorization: authHeader }
+            }
+        })
 
         // Extract token securely
         const token = authHeader.replace(/^[Bb]earer /, '').trim();
 
-        if (!token) {
-            return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Empty token' }), {
-                status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-        }
-
-        // Use supabaseAdmin to verify the token explicitly - this is the most robust way
-        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+        // 2. Verify the user:
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
 
         if (authError || !user) {
             // Check if it's the Service Role Key being used as a token (internal call)
@@ -56,6 +54,9 @@ serve(async (req) => {
                 })
             }
         }
+
+        // Initialize Admin Client for DB operations
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
         if (user) console.log('User authenticated:', user.id)
 

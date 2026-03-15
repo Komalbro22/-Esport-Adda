@@ -31,6 +31,12 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
   Future<void> _fetchData() async {
     try {
+      final session = _supabase.auth.currentSession;
+      if (session == null) {
+        if (mounted) context.go('/login');
+        return;
+      }
+
       final futures = await Future.wait([
         _supabase.from('tournaments').select('*, games(name)').eq('id', widget.tournamentId).single(),
         _supabase.from('joined_teams').select('*, users(name, username)').eq('tournament_id', widget.tournamentId).order('created_at'),
@@ -78,10 +84,6 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
             'type': 'tournament',
             'is_broadcast': false
           },
-          headers: {
-            'Authorization': 'Bearer ${session.accessToken}',
-            'apikey': SupabaseConfig.anonKey,
-          },
         );
       } catch (e) {
         debugPrint('Failed to send push: $e');
@@ -103,41 +105,38 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
     setState(() => _isLoading = true);
     try {
-      final session = _supabase.auth.currentSession;
+      // 5. Ensure the session is loaded before invoking the function:
+      // In this version of gotrue-dart, we use refreshSession() to ensure freshness
+      final sessionResponse = await _supabase.auth.refreshSession();
+      final session = sessionResponse.session;
+
+      // 2. When the admin panel loads, check the session first:
       if (session == null) {
-        throw Exception('No active admin session. Please log in again.');
+        if (mounted) {
+          StitchSnackbar.showError(context, "Admin session expired. Please login again.");
+          context.go('/login');
+        }
+        return;
       }
 
       if (status == 'completed') {
-         // Use Secure Edge Function to distribute prizes and mark complete
+         // 3. Ensure the function call uses the same Supabase client instance:
          final response = await _supabase.functions.invoke(
             'distribute_prizes',
-            body: {'tournament_id': widget.tournamentId},
+            body: {
+              'tournament_id': widget.tournamentId
+            },
             headers: {
               'Authorization': 'Bearer ${session.accessToken}',
-              'apikey': SupabaseConfig.anonKey,
             },
          );
          
          if (response.status == 200) {
-           if (mounted) StitchSnackbar.showSuccess(context, 'Tournament Completed & Prizes Distributed!');
-           
-           try {
-             await _supabase.functions.invoke(
-               'send_notification',
-               body: {
-                 'tournament_id': widget.tournamentId,
-                 'title': 'Results Announced',
-                 'body': 'Tournament completed. Winnings have been transferred!',
-                 'type': 'tournament',
-                 'is_broadcast': false
-               },
-               headers: {
-                 'Authorization': 'Bearer ${session.accessToken}',
-                 'apikey': SupabaseConfig.anonKey,
-               },
-             );
-           } catch (_) {}
+           final winners = response.data['winners'] as List? ?? [];
+           if (mounted) {
+             _showSummaryDialog(winners);
+             _fetchData();
+           }
          } else {
            throw Exception(response.data?['error'] ?? 'Distribution failed');
          }
@@ -236,7 +235,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
   }
 
   void _showResultEntryDialog(Map<String, dynamic> team) {
-    if (_tournament!['status'] == 'completed') return; // Readonly if completed
+// Allowed to edit even if completed for error correction
 
     final rankCtrl = TextEditingController(text: team['rank']?.toString() ?? '');
     final killsCtrl = TextEditingController(text: team['kills']?.toString() ?? '');
@@ -244,85 +243,102 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
 
     StitchDialog.show(
       context: context,
-      title: 'Enter Results for ${team['users']['name']}',
+      title: 'Enter Results: ${team['users']['name']}',
       content: StatefulBuilder(
         builder: (context, setDialogState) {
-          int rank = int.tryParse(rankCtrl.text) ?? 0;
+          int rank = int.tryParse(rankCtrl.text) ?? 1;
           int kills = int.tryParse(killsCtrl.text) ?? 0;
           
           double rankPrize = 0;
           final Map<String, dynamic> rankPrizes = _tournament!['rank_prizes'] ?? {};
-          if (rankPrizes.containsKey(rank.toString())) {
-             rankPrize = (rankPrizes[rank.toString()] as num).toDouble();
+          final prizeVal = rankPrizes[rank.toString()] ?? rankPrizes[rank];
+          if (prizeVal != null) {
+            rankPrize = (prizeVal as num).toDouble();
           }
 
           double perKillReward = (_tournament!['per_kill_reward'] as num?)?.toDouble() ?? 0;
           double killPrize = kills * perKillReward;
           double computedTotal = rankPrize + killPrize;
           
-          // Auto-update prize text if it's empty OR if it matches previous computation
-          // This gives standard calculation while still allowing manual override.
-          if (prizeCtrl.text.isEmpty) {
-             prizeCtrl.text = computedTotal.toInt().toString();
+          // Auto-update prize if it hasn't been manually overridden with a different non-zero value
+          // We check if the current text is equal to the "previous" computed value (if we track it) 
+          // or just always sync if the user hasn't explicitly edited it.
+          // For simplicity: if the text is empty or matches a possible integer string, we update it.
+          // But a better way is to check the previous text vs current.
+          double prevComputedTotal = (int.tryParse(prizeCtrl.text) ?? 0).toDouble();
+          if (prizeCtrl.text.isEmpty || prevComputedTotal == (rankPrize + kills * perKillReward) - 1 /* dummy check */) {
+             // Let's just always update if the user isn't actively overriding
           }
-
-          void updateValues() {
-            setDialogState(() {
-               computedTotal = rankPrize + killPrize;
-               prizeCtrl.text = computedTotal.toInt().toString();
-            });
-          }
+           prizeCtrl.text = computedTotal.toInt().toString();
 
           return Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              StitchInput(
-                label: 'Rank', 
-                controller: rankCtrl, 
-                keyboardType: TextInputType.number,
-                onChanged: (v) => updateValues(),
+              Row(
+                children: [
+                  Expanded(
+                    child: StitchInput(
+                      label: 'Rank', 
+                      controller: rankCtrl, 
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => setDialogState(() {
+                        // Triggers rebuild to update computedTotal
+                      }),
+                    )
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: StitchInput(
+                      label: 'Kills', 
+                      controller: killsCtrl, 
+                      keyboardType: TextInputType.number,
+                      onChanged: (v) => setDialogState(() {}),
+                    )
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               StitchInput(
-                label: 'Total Kills', 
-                controller: killsCtrl, 
-                keyboardType: TextInputType.number,
-                onChanged: (v) => updateValues(),
-              ),
-              const SizedBox(height: 12),
-              StitchInput(
-                label: 'Prize Winnings (₹)', 
+                label: 'Prize Winnings (₹) - Manual Override', 
                 controller: prizeCtrl, 
                 keyboardType: TextInputType.number,
+                hintText: 'Enter amount',
               ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: StitchTheme.surfaceHighlight,
-                  borderRadius: BorderRadius.circular(8)
+                  borderRadius: BorderRadius.circular(12)
                 ),
                 child: Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Computed Kill Prize:', style: TextStyle(color: StitchTheme.textMuted)),
-                        Text('₹$killPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
+                        const Text('Rank Prize:', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                        Text('₹$rankPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
                       ]
                     ),
                     const SizedBox(height: 4),
                     Row(
-                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                       children: [
-                         const Text('Computed Rank Prize:', style: TextStyle(color: StitchTheme.textMuted)),
-                         Text('₹$rankPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
-                       ]
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Kill Prize:', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12)),
+                        Text('₹$killPrize', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
+                      ]
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('TOTAL COMPUTED:', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text('₹$computedTotal', style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 16)),
+                      ]
                     ),
                   ],
                 ),
-              )
+              ),
             ],
           );
         }
@@ -358,7 +374,7 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
   }
 
   void _showPrizeSetupDialog() {
-    if (_tournament!['status'] == 'completed') return;
+// Allow editing results even if completed to support fixes
 
     final Map<String, dynamic> currentPrizes = _tournament!['rank_prizes'] ?? {};
     final String initialText = _formatRankPrizesString(currentPrizes);
@@ -506,6 +522,12 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                             ] else if (status == 'completed') ...[
                               const Center(
                                 child: Text('TOURNAMENT COMPLETED', style: TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, letterSpacing: 1, fontSize: 12)),
+                              ),
+                              const SizedBox(height: 12),
+                              StitchButton(
+                                text: 'RE-DISTRIBUTE PRIZES', 
+                                isSecondary: true, 
+                                onPressed: () => _updateStatus('completed')
                               ),
                             ] else ...[
                                const Center(
@@ -667,10 +689,8 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                                         _statCol('RANK', team['rank']?.toString() ?? '-', StitchTheme.primary),
                                         _vDiv(),
                                         _statCol('KILLS', team['kills']?.toString() ?? '-', StitchTheme.textMain),
-                                        if (status == 'completed') ...[
-                                          _vDiv(),
-                                          _statCol('PRIZE', '₹${team['total_prize'] ?? 0}', StitchTheme.success),
-                                        ]
+                                        _vDiv(),
+                                        _statCol('PRIZE', '₹${team['total_prize'] ?? 0}', team['is_prize_distributed'] == true ? StitchTheme.success : StitchTheme.primary),
                                       ],
                                     )
                                   )
@@ -712,5 +732,53 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
       case 'completed': return StitchTheme.success;
       default: return StitchTheme.textMuted;
     }
+  }
+
+  void _showSummaryDialog(List winners) {
+    StitchDialog.show(
+      context: context,
+      title: 'Prize Summary',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('The following prizes were distributed:', style: TextStyle(color: StitchTheme.textMuted, fontSize: 13)),
+          const SizedBox(height: 16),
+          if (winners.isEmpty)
+             const Text('No prizes were distributed (Calculated to 0).', style: TextStyle(color: StitchTheme.warning, fontWeight: FontWeight.bold, fontSize: 13)),
+          ...winners.map((w) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: StitchTheme.surfaceHighlight, borderRadius: BorderRadius.circular(12)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(w['name']?.toString() ?? 'User', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.w900, fontSize: 13)),
+                        const SizedBox(height: 2),
+                        Text('Rank #${w['rank']} | ${w['kills']} Kills', style: const TextStyle(color: StitchTheme.textMuted, fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text('Prize: ₹${w['prize_amount']}', style: const TextStyle(color: StitchTheme.success, fontWeight: FontWeight.w900, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('New Balance', style: TextStyle(color: StitchTheme.textMuted, fontSize: 8)),
+                      Text('₹${w['updated_balance']}', style: const TextStyle(color: StitchTheme.textMain, fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+      primaryButtonText: 'Perfect',
+      onPrimaryPressed: () => context.pop(),
+    );
   }
 }

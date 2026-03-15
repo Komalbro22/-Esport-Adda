@@ -170,7 +170,9 @@ serve(async (req) => {
     const { error: joinError } = await supabaseAdmin.from('joined_teams').insert({
       tournament_id: tournament_id,
       user_id: user.id,
-      team_data: team_data || []
+      team_data: team_data || [],
+      fee_deposit: depositDeducted,
+      fee_winning: winningDeducted
     })
 
     if (joinError) return new Response(JSON.stringify({ error: 'Failed to record entry' }), {

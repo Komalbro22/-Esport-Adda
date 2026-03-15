@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7"
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -7,11 +7,42 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+    // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
     }
 
     try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+        const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+
+        // 1. Initialize Supabase Client using Authorization header (Requirement 3)
+        const authHeader = req.headers.get('Authorization')
+        const supabase = createClient(
+            supabaseUrl,
+            supabaseAnonKey,
+            {
+                global: {
+                    headers: {
+                        Authorization: authHeader ?? ''
+                    }
+                }
+            }
+        )
+
+        // 2. Verify the user (Requirement 4)
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        // 3. If user is null or error, return specific error (Requirement 5)
+        if (authError || !user) {
+            return new Response(JSON.stringify({ error: 'User not authenticated' }), {
+                status: 401,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // 4. Extract Body
         const { promo_code } = await req.json()
         if (!promo_code) {
             return new Response(JSON.stringify({ error: 'Promo code is required' }), {
@@ -20,32 +51,9 @@ serve(async (req) => {
             })
         }
 
-        const authHeader = req.headers.get('Authorization')
-        if (!authHeader) {
-            return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-                status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-        }
-
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-        const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') ?? ''
+        // 5. Promo Code Logic (Requirement 6: Keep unchanged)
         const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-        // 1. Get user from JWT
-        const supabaseClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
-            global: { headers: { Authorization: authHeader } }
-        })
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-
-        if (authError || !user) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            })
-        }
-
-        // 2. Fetch promo code details
         const { data: codeData, error: codeError } = await supabaseAdmin
             .from('promo_codes')
             .select('*')
@@ -60,7 +68,7 @@ serve(async (req) => {
             })
         }
 
-        // 3. Check expiration
+        // Check expiration
         if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
             return new Response(JSON.stringify({ error: 'Promo code has expired' }), {
                 status: 400,
@@ -68,7 +76,7 @@ serve(async (req) => {
             })
         }
 
-        // 4. Check usage limit
+        // Check usage limit
         if (codeData.usage_type === 'limited' && codeData.times_used >= codeData.usage_limit) {
             return new Response(JSON.stringify({ error: 'Promo code usage limit reached' }), {
                 status: 400,
@@ -76,7 +84,7 @@ serve(async (req) => {
             })
         }
 
-        // 5. Check if user already redeemed this code
+        // Check if user already redeemed
         const { data: existingRedemption } = await supabaseAdmin
             .from('promo_code_redemptions')
             .select('id')
@@ -91,11 +99,7 @@ serve(async (req) => {
             })
         }
 
-        // 6. Execute redemption (Atomic update)
-        // We use a transaction-like approach by doing it in the correct order
-        // and using RPC for balance increment to ensure atomicity at DB level.
-
-        // a. Record redemption
+        // Execute redemption
         const { error: redemptionError } = await supabaseAdmin
             .from('promo_code_redemptions')
             .insert({
@@ -110,18 +114,12 @@ serve(async (req) => {
             })
         }
 
-        // b. Update promo code usage count
         await supabaseAdmin.rpc('increment_promo_usage', { p_id: codeData.id })
 
-        // c. Add money to user wallet
         const walletType = codeData.reward_type === 'winning' ? 'winning' : 'deposit'
         const rpcFunction = codeData.reward_type === 'winning' ? 'increment_winning_wallet' : 'increment_deposit_wallet'
-
-        // Ensure increment_winning_wallet exists (we created increment_deposit_wallet earlier)
-        // We might need to create it if not present.
         await supabaseAdmin.rpc(rpcFunction, { u_id: user.id, amt: codeData.reward_amount })
 
-        // d. Record wallet transaction
         await supabaseAdmin.from('wallet_transactions').insert({
             user_id: user.id,
             amount: codeData.reward_amount,
@@ -131,7 +129,6 @@ serve(async (req) => {
             reference_id: `Promo Code: ${codeData.code}`
         })
 
-        // e. Log activity
         await supabaseAdmin.from('user_activity_logs').insert({
             user_id: user.id,
             activity_type: 'promo_redeemed',
@@ -142,8 +139,6 @@ serve(async (req) => {
         return new Response(JSON.stringify({
             success: true,
             message: `Success! ₹${codeData.reward_amount} added to your ${walletType} wallet.`,
-            amount: codeData.reward_amount,
-            type: codeData.reward_type
         }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -153,7 +148,7 @@ serve(async (req) => {
         console.error('Redemption Error:', err);
         return new Response(JSON.stringify({
             error: err.message || 'Internal server error',
-            details: err.details || err.hint || null
+            details: err.details || null
         }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

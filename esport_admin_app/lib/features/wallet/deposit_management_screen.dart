@@ -89,9 +89,13 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
     setState(() => _isLoading = true);
     try {
       final isApproved = action == 'approve';
-      final session = _supabase.auth.currentSession;
+      // Ensure session is fresh before call
+      final sessionResponse = await _supabase.auth.refreshSession();
+      final session = sessionResponse.session;
+
       if (session == null) {
-        throw Exception('No active admin session. Please log in again.');
+        if (mounted) context.go('/login');
+        throw Exception('Session expired. Please log in again.');
       }
       
       debugPrint('Calling approve_deposit with token length: ${session.accessToken.length}');

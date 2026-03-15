@@ -87,6 +87,16 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
     setState(() => _isLoading = true);
     try {
       final isApproved = action == 'approve';
+      
+      // Ensure session is fresh before call
+      final sessionResponse = await _supabase.auth.refreshSession();
+      final session = sessionResponse.session;
+
+      if (session == null) {
+        if (mounted) context.go('/login');
+        throw Exception('Session expired. Please log in again.');
+      }
+
       final response = await _supabase.functions.invoke(
         'approve_withdraw',
         body: {
@@ -94,7 +104,7 @@ class _WithdrawManagementScreenState extends State<WithdrawManagementScreen> {
           'approved': isApproved
         },
         headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'Authorization': 'Bearer ${session.accessToken}',
           'apikey': SupabaseConfig.anonKey,
         },
       );

@@ -30,13 +30,8 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
 
     try {
       final response = await _supabase.functions.invoke(
-        'redeem_promo_code',
+        'redeem-promo',
         body: {'promo_code': code},
-        headers: {
-          'Authorization': 'Bearer ${session.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-          'X-Client-Info': 'supabase-flutter/2.0.0',
-        },
       );
 
       final status = response.status;

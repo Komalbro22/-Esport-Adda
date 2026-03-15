@@ -62,10 +62,6 @@ class VoucherService {
       final session = _supabase.auth.currentSession;
       final response = await _supabase.functions.invoke(
         'redeem_voucher',
-        headers: {
-          if (session != null) 'Authorization': 'Bearer ${session.accessToken}',
-          'apikey': SupabaseConfig.anonKey,
-        },
         body: {
           'category_id': categoryId,
           'amount': amount,

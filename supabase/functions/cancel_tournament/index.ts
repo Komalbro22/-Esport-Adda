@@ -90,66 +90,66 @@ serve(async (req) => {
             throw new Error(`DB Error setting status to cancelled: ${updateError.message}`)
         }
 
-        // 3. Find all entry deductions specific to this tournament
-        const { data: txs, error: txError } = await supabaseAdmin
-            .from('wallet_transactions')
-            .select('*')
-            .eq('reference_id', tournament_id)
-            .eq('type', 'tournament_entry')
-            .eq('status', 'completed')
+        // 3. Find all participants and their fee splits
+        const { data: participants, error: partError } = await supabaseAdmin
+            .from('joined_teams')
+            .select('id, user_id, fee_deposit, fee_winning, is_refunded')
+            .eq('tournament_id', tournament_id)
 
-        if (txError) throw new Error('Could not fetch entry transactions')
+        if (partError) throw new Error('Could not fetch participants')
 
-        if (txs && txs.length > 0) {
-            // Group by user
-            const refundsByUser: Record<string, { deposit: number; winning: number }> = {}
-
-            for (const tx of txs) {
-                if (!refundsByUser[tx.user_id]) refundsByUser[tx.user_id] = { deposit: 0, winning: 0 }
-
-                if (tx.wallet_type === 'deposit') refundsByUser[tx.user_id].deposit += tx.amount
-                if (tx.wallet_type === 'winning') refundsByUser[tx.user_id].winning += tx.amount
-            }
-
-            // Process refunds
+        if (participants && participants.length > 0) {
             const newTransactions = []
 
-            for (const [userId, amounts] of Object.entries(refundsByUser)) {
-                // Fetch user wallet
-                const { data: wallet } = await supabaseAdmin.from('user_wallets').select('*').eq('user_id', userId).single()
-                if (!wallet) continue;
+            for (const p of participants) {
+                if (p.is_refunded) {
+                    console.log(`User ${p.user_id} is already refunded. Skipping.`)
+                    continue;
+                }
 
-                const newDeposit = wallet.deposit_wallet + amounts.deposit
-                const newWinning = wallet.winning_wallet + amounts.winning
+                const dRefund = Number(p.fee_deposit || 0)
+                const wRefund = Number(p.fee_winning || 0)
+
+                if (dRefund <= 0 && wRefund <= 0) {
+                    console.warn(`No refund data found for User ${p.user_id}. Check manually if logic before fee_split storage was used.`)
+                    continue;
+                }
+
+                // Fetch user wallet
+                const { data: wallet } = await supabaseAdmin.from('user_wallets').select('*').eq('user_id', p.user_id).single()
+                if (!wallet) continue;
 
                 // Update wallet
                 await supabaseAdmin.from('user_wallets').update({
-                    deposit_wallet: newDeposit,
-                    winning_wallet: newWinning
-                }).eq('id', wallet.id)
+                    deposit_wallet: wallet.deposit_wallet + dRefund,
+                    winning_wallet: wallet.winning_wallet + wRefund
+                }).eq('user_id', p.user_id)
 
-                // Prepare refund logs
-                if (amounts.deposit > 0) {
+                // Mark participant as refunded
+                await supabaseAdmin.from('joined_teams').update({ is_refunded: true }).eq('id', p.id)
+
+                // Log transactions
+                if (dRefund > 0) {
                     newTransactions.push({
-                        user_id: userId,
-                        amount: amounts.deposit,
+                        user_id: p.user_id,
+                        amount: dRefund,
                         type: 'tournament_refund',
                         wallet_type: 'deposit',
                         status: 'completed',
                         reference_id: tournament_id,
-                        message: `Refund for cancelled tournament: ${tournament.title}`
+                        message: `Refund (Deposit) for cancelled tournament: ${tournament.title}`
                     })
                 }
 
-                if (amounts.winning > 0) {
+                if (wRefund > 0) {
                     newTransactions.push({
-                        user_id: userId,
-                        amount: amounts.winning,
+                        user_id: p.user_id,
+                        amount: wRefund,
                         type: 'tournament_refund',
                         wallet_type: 'winning',
                         status: 'completed',
                         reference_id: tournament_id,
-                        message: `Refund for cancelled tournament: ${tournament.title}`
+                        message: `Refund (Winning) for cancelled tournament: ${tournament.title}`
                     })
                 }
             }
