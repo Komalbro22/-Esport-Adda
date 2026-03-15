@@ -21,15 +21,21 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    final session = _supabase.auth.currentSession;
+    if (session == null) {
+      StitchSnackbar.showError(context, 'Session expired. Please log in again.');
+      setState(() => _isSubmitting = false);
+      return;
+    }
 
     try {
       final response = await _supabase.functions.invoke(
         'redeem_promo_code',
         body: {'promo_code': code},
         headers: {
-          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'Authorization': 'Bearer ${session.accessToken}',
           'apikey': SupabaseConfig.anonKey,
+          'X-Client-Info': 'supabase-flutter/2.0.0',
         },
       );
 
