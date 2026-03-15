@@ -27,6 +27,10 @@ class _RedeemCodeScreenState extends State<RedeemCodeScreen> {
       final response = await _supabase.functions.invoke(
         'redeem_promo_code',
         body: {'promo_code': code},
+        headers: {
+          'Authorization': 'Bearer ${_supabase.auth.currentSession?.accessToken ?? ''}',
+          'apikey': SupabaseConfig.anonKey,
+        },
       );
 
       final status = response.status;
