@@ -68,3 +68,6 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+-dontwarn com.fasterxml.jackson.**
+-dontwarn com.google.auto.value.**
+-dontwarn io.opentelemetry.**
