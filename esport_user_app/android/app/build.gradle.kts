@@ -18,7 +18,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.esport.esport_user_app"
-    compileSdk = 35 // Explicitly set to 35 for production readiness
+    compileSdk = 36 // Explicitly set to 36 to satisfy plugin requirements (app_links, image_picker, etc.)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
