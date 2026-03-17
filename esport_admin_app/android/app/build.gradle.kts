@@ -10,14 +10,14 @@ import java.util.Properties
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    keystorePropertiesFile.inputStream().use { 
+    keystorePropertiesFile.inputStream().use {
         keystoreProperties.load(it)
     }
 }
 
 android {
     namespace = "com.esport.esport_admin_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -40,24 +40,52 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.esportadda.admin"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21
+        targetSdk = 35
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
     }
 
+    // Per-architecture APKs for smaller download sizes
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
             isMinifyEnabled = false
             isShrinkResources = false
+        }
+    }
+
+    // Exclude duplicate META-INF files that cause packaging conflicts
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE-notice.md"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/*.kotlin_module"
         }
     }
 }
@@ -67,5 +95,6 @@ flutter {
 }
 
 dependencies {
+    // Required for Java 8+ API desugaring on older Android versions (minSdk < 26)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
 }

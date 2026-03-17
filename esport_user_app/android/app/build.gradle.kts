@@ -11,14 +11,14 @@ import java.util.Properties
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
-    keystorePropertiesFile.inputStream().use { 
+    keystorePropertiesFile.inputStream().use {
         keystoreProperties.load(it)
     }
 }
 
 android {
     namespace = "com.esport.esport_user_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35 // Explicitly set to 35 for production readiness
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -41,24 +41,48 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.esportadda.app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 21 // Explicitly set to 21 for broader device compatibility
+        targetSdk = 35 // Explicitly set to 35 for latest features and security
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        multiDexEnabled = true
+        multiDexEnabled = true // Ensure multiDex is enabled
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true // Enable R8/ProGuard for release builds
+            isShrinkResources = true // Enable resource shrinking
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    // Per-architecture APKs for smaller download sizes
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
+    // Exclude duplicate META-INF files that cause packaging conflicts
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/LICENSE.md"
+            excludes += "META-INF/LICENSE-notice.md"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/*.kotlin_module"
         }
     }
 }
@@ -69,4 +93,5 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
+    implementation("androidx.multidex:multidex:2.0.1")
 }

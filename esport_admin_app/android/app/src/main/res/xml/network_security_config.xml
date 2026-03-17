@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network security config for Esport Adda Admin App.
+    - Forces HTTPS for all connections (no cleartext HTTP) on API 28+
+    - Trusts system CAs for Supabase, Firebase endpoints
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>
