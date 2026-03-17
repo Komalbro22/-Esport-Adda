@@ -48,16 +48,6 @@ android {
         multiDexEnabled = true
     }
 
-    // Per-architecture APKs for smaller download sizes
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
-        }
-    }
-
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
@@ -97,4 +87,5 @@ flutter {
 dependencies {
     // Required for Java 8+ API desugaring on older Android versions (minSdk < 26)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
+    implementation("androidx.multidex:multidex:2.0.1")
 }

@@ -61,15 +61,7 @@ android {
         }
     }
 
-    // Per-architecture APKs for smaller download sizes
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
-        }
-    }
+
 
     // Exclude duplicate META-INF files that cause packaging conflicts
     packaging {
