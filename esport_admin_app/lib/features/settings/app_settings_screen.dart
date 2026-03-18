@@ -4,6 +4,7 @@ import 'package:esport_core/esport_core.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'website_management_screen.dart';
+import 'payment_settings_screen.dart';
 import 'package:esport_core/services/imgbb_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 class AppSettingsScreen extends StatefulWidget {
@@ -167,8 +168,21 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Website Management', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
+                  const Text('Platform Configurations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
                   const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.payment, color: StitchTheme.primary),
+                    title: const Text('Payment Settings', style: TextStyle(color: StitchTheme.textMain)),
+                    trailing: const Icon(Icons.chevron_right, color: StitchTheme.textMuted),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const PaymentSettingsScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(color: StitchTheme.surfaceHighlight),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.web, color: StitchTheme.primary),

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'features/auth/admin_login_screen.dart';
 import 'features/auth/permission_guard.dart';
 import 'features/dashboard/admin_dashboard_screen.dart';
+import 'features/dashboard/profit_dashboard_screen.dart';
 import 'features/games/game_management_screen.dart';
 import 'features/tournaments/tournament_management_screen.dart';
 import 'features/tournaments/tournament_admin_detail_screen.dart';
@@ -158,6 +159,13 @@ final _router = GoRouter(
     GoRoute(
       path: '/payment_settings',
       builder: (context, state) => const PaymentSettingsScreen(),
+    ),
+    GoRoute(
+      path: '/profit_dashboard',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.canViewAnalytics,
+        child: const ProfitDashboardScreen(),
+      ),
     ),
     GoRoute(
       path: '/app_settings',

@@ -249,6 +249,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         const SizedBox(height: 16),
                         
+                        _buildSimpleNavTile('Profit Analytics Dashboard', Icons.insights_rounded, '/profit_dashboard'),
                         _buildSimpleNavTile('Payment Integration', Icons.payments_rounded, '/payment_settings'),
                         _buildSimpleNavTile('Branding & Configuration', Icons.auto_awesome_rounded, '/app_settings'),
                         _buildSimpleNavTile('Cloud Asset Gallery', Icons.cloud_done_rounded, '/assets'),

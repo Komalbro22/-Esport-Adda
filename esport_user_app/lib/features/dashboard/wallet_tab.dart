@@ -9,6 +9,7 @@ import 'package:esport_core/esport_core.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/payment_service.dart';
 
 class WalletTab extends StatefulWidget {
   const WalletTab({super.key});
@@ -32,6 +33,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   late TabController _tabController;
   final ScrollController _txScrollController = ScrollController();
   StreamSubscription? _walletSubscription;
+  late final PaymentService _paymentService;
 
   @override
   void initState() {
@@ -39,6 +41,14 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     _tabController = TabController(length: 2, vsync: this);
     _txScrollController.addListener(_onTxScroll);
     _fetchWalletData();
+    _paymentService = PaymentService()
+      ..onPaymentSuccess = (msg) {
+        if (mounted) StitchSnackbar.showSuccess(context, msg);
+        _fetchWalletData();
+      }
+      ..onPaymentError = (msg) {
+        if (mounted) StitchSnackbar.showError(context, msg);
+      };
   }
 
   void _onTxScroll() {
@@ -55,6 +65,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     _txScrollController.dispose();
     _tabController.dispose();
     _walletStatsNotifier.dispose();
+    _paymentService.dispose();
     super.dispose();
   }
 
@@ -131,69 +142,115 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   Future<void> _showAddMoney() async {
     setState(() => _isLoading = true);
 
-    // Fetch payment settings
-    String upiId = '';
-    String upiName = 'Esport Adda';
-    String? qrUrl;
-    double minDeposit = 10;
-
     try {
-      final settings = await _supabase.from('payment_settings').select().maybeSingle();
-      if (settings != null) {
-        upiId = settings['upi_id']?.toString() ?? '';
-        upiName = settings['upi_name']?.toString().isNotEmpty == true
-            ? settings['upi_name']
-            : 'Esport Adda';
-        qrUrl = settings['upi_qr_url'] ?? settings['qr_code_url'];
-        minDeposit = (settings['minimum_deposit'] as num?)?.toDouble() ?? 10;
+      final settings = await _paymentService.getActivePaymentMethod();
+      if (mounted) setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      if (settings == null) {
+        StitchSnackbar.showError(context, 'Payment not configured. Contact support.');
+        return;
       }
-    } catch (_) {}
 
-    if (mounted) setState(() => _isLoading = false);
-    if (!mounted) return;
+      final method = settings['active_method'] as String? ?? 'manual_upi';
+      final minDeposit = (settings['min_deposit'] as num?)?.toDouble() ?? 10;
 
-    if (upiId.isEmpty) {
-      StitchSnackbar.showError(context, 'Payment not configured. Contact support.');
+      if (method == 'razorpay') {
+        _showRazorpayAmountDialog(minDeposit, settings['razorpay_key_id']?.toString() ?? '');
+      } else {
+        // Manual UPI Flow
+        final upiId = settings['upi_id']?.toString() ?? '';
+        final upiName = settings['upi_name']?.toString() ?? 'Esport Adda';
+        final qrUrl = settings['upi_qr_url']?.toString();
+        
+        if (upiId.isEmpty) {
+          StitchSnackbar.showError(context, 'UPI not configured. Contact support.');
+          return;
+        }
+
+        await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (ctx) => _DepositSheet(
+            upiId: upiId,
+            upiName: upiName,
+            qrUrl: qrUrl,
+            minDeposit: minDeposit,
+            onSubmit: (double amount, String? txnId, String? screenshotUrl) async {
+              setState(() => _isLoading = true);
+              try {
+                final depositRes = await _supabase.from('deposit_requests').insert({
+                  'user_id': _supabase.auth.currentUser!.id,
+                  'amount': amount,
+                  'transaction_id': txnId,
+                  'screenshot_url': screenshotUrl,
+                  'status': 'pending',
+                }).select('id').single();
+
+                await _supabase.from('wallet_transactions').insert({
+                  'user_id': _supabase.auth.currentUser!.id,
+                  'amount': amount,
+                  'type': 'deposit',
+                  'wallet_type': 'deposit',
+                  'status': 'pending',
+                  'reference_id': depositRes['id'].toString(),
+                });
+
+                if (mounted) StitchSnackbar.showSuccess(context, 'Deposit request submitted! Pending admin approval.');
+              } catch (e) {
+                if (mounted) StitchSnackbar.showError(context, 'Failed to submit request');
+              } finally {
+                _fetchWalletData();
+              }
+            },
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        StitchSnackbar.showError(context, 'Failed to load payment settings.');
+      }
+    }
+  }
+
+  void _showRazorpayAmountDialog(double minDeposit, String keyId) {
+    if (keyId.isEmpty) {
+      StitchSnackbar.showError(context, 'Razorpay not configured properly. Contact support.');
       return;
     }
 
-    await showModalBottomSheet(
+    final amtController = TextEditingController();
+    
+    StitchDialog.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _DepositSheet(
-        upiId: upiId,
-        upiName: upiName,
-        qrUrl: qrUrl,
-        minDeposit: minDeposit,
-        onSubmit: (double amount, String? txnId, String? screenshotUrl) async {
-          setState(() => _isLoading = true);
-          try {
-            final depositRes = await _supabase.from('deposit_requests').insert({
-              'user_id': _supabase.auth.currentUser!.id,
-              'amount': amount,
-              'transaction_id': txnId,
-              'screenshot_url': screenshotUrl,
-              'status': 'pending',
-            }).select('id').single();
-
-            await _supabase.from('wallet_transactions').insert({
-              'user_id': _supabase.auth.currentUser!.id,
-              'amount': amount,
-              'type': 'deposit',
-              'wallet_type': 'deposit',
-              'status': 'pending',
-              'reference_id': depositRes['id'].toString(),
-            });
-
-            if (mounted) StitchSnackbar.showSuccess(context, 'Deposit request submitted! Pending admin approval.');
-          } catch (e) {
-            if (mounted) StitchSnackbar.showError(context, 'Failed to submit request');
-          } finally {
-            _fetchWalletData();
-          }
-        },
+      title: 'Add Money via Razorpay',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StitchInput(
+            label: 'Amount to Add (₹)', 
+            controller: amtController, 
+            keyboardType: TextInputType.number,
+            hintText: 'Min: ₹$minDeposit'
+          ),
+        ],
       ),
+      primaryButtonText: 'Proceed to Pay',
+      secondaryButtonText: 'Cancel',
+      onPrimaryPressed: () async {
+         final amt = double.tryParse(amtController.text.trim());
+         if (amt == null || amt < minDeposit) {
+           StitchSnackbar.showError(context, 'Minimum deposit is ₹$minDeposit');
+           return;
+         }
+         Navigator.of(context).pop();
+         
+         // Open Razorpay
+         _paymentService.openRazorpayCheckout(amount: amt, keyId: keyId);
+      }
     );
   }
 
