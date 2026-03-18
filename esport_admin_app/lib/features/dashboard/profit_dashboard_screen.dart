@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 
 class ProfitDashboardScreen extends StatefulWidget {
-  const ProfitDashboardScreen({super.key});
+  final bool isNested;
+  const ProfitDashboardScreen({super.key, this.isNested = false});
 
   @override
   State<ProfitDashboardScreen> createState() => _ProfitDashboardScreenState();

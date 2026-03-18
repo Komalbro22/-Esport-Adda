@@ -160,7 +160,7 @@ final _router = GoRouter(
     GoRoute(
       path: '/finance_center',
       builder: (context, state) => PermissionGuard(
-        allowed: () => AdminPermissionService.canViewAnalytics || AdminPermissionService.isSuperAdmin,
+        allowed: AdminPermissionService.canViewAnalytics || AdminPermissionService.isSuperAdmin,
         child: const FinanceCenterScreen(),
       ),
     ),
