@@ -1,7 +1,7 @@
 name: esport_user_app
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.25+150
+version: 1.0.26+151
 
 environment:
   sdk: ^3.0.0
