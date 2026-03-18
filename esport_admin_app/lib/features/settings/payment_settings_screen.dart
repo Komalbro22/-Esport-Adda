@@ -3,7 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 
 class PaymentSettingsScreen extends StatefulWidget {
-  const PaymentSettingsScreen({Key? key}) : super(key: key);
+  final bool isNested;
+  const PaymentSettingsScreen({Key? key, this.isNested = false}) : super(key: key);
 
   @override
   State<PaymentSettingsScreen> createState() => _PaymentSettingsScreenState();
@@ -103,7 +104,8 @@ class _PaymentSettingsScreenState extends State<PaymentSettingsScreen> {
     if (_isLoading) return const Scaffold(body: StitchLoading());
 
     return Scaffold(
-      appBar: AppBar(
+      backgroundColor: widget.isNested ? Colors.transparent : StitchTheme.background,
+      appBar: widget.isNested ? null : AppBar(
         title: const Text('Payment Settings', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(

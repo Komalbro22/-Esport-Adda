@@ -221,36 +221,18 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
       return;
     }
 
-    final amtController = TextEditingController();
-    
-    StitchDialog.show(
+    showModalBottomSheet(
       context: context,
-      title: 'Add Money via Razorpay',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          StitchInput(
-            label: 'Amount to Add (₹)', 
-            controller: amtController, 
-            keyboardType: TextInputType.number,
-            hintText: 'Min: ₹$minDeposit'
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _RazorpayAddMoneySheet(
+        minDeposit: minDeposit,
+        keyId: keyId,
+        onProceed: (amount) {
+          Navigator.pop(ctx);
+          _paymentService.openRazorpayCheckout(amount: amount, keyId: keyId);
+        },
       ),
-      primaryButtonText: 'Proceed to Pay',
-      secondaryButtonText: 'Cancel',
-      onPrimaryPressed: () async {
-         final amt = double.tryParse(amtController.text.trim());
-         if (amt == null || amt < minDeposit) {
-           StitchSnackbar.showError(context, 'Minimum deposit is ₹$minDeposit');
-           return;
-         }
-         Navigator.of(context).pop();
-         
-         // Open Razorpay
-         _paymentService.openRazorpayCheckout(amount: amt, keyId: keyId);
-      }
     );
   }
 
@@ -1198,6 +1180,145 @@ class _DepositSheetState extends State<_DepositSheet> {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RazorpayAddMoneySheet extends StatefulWidget {
+  final double minDeposit;
+  final String keyId;
+  final Function(double) onProceed;
+
+  const _RazorpayAddMoneySheet({
+    required this.minDeposit,
+    required this.keyId,
+    required this.onProceed,
+  });
+
+  @override
+  State<_RazorpayAddMoneySheet> createState() => _RazorpayAddMoneySheetState();
+}
+
+class _RazorpayAddMoneySheetState extends State<_RazorpayAddMoneySheet> {
+  final _amountController = TextEditingController();
+  final List<double> _quickAmounts = [50, 100, 500, 1000];
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _addQuickAmount(double amount) {
+    final current = double.tryParse(_amountController.text) ?? 0;
+    _amountController.text = (current + amount).toStringAsFixed(0);
+    _amountController.selection = TextSelection.fromPosition(TextPosition(offset: _amountController.text.length));
+  }
+
+  void _proceed() {
+    final amt = double.tryParse(_amountController.text.trim());
+    if (amt == null || amt < widget.minDeposit) {
+      StitchSnackbar.showError(context, 'Minimum deposit is ₹${widget.minDeposit}');
+      return;
+    }
+    widget.onProceed(amt);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
+      decoration: const BoxDecoration(
+        color: StitchTheme.surfaceHighlight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 48,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.15), shape: BoxShape.circle),
+                  child: const Icon(Icons.account_balance_wallet_rounded, color: StitchTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 16),
+                const Text('Top Up Wallet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+              ],
+            ),
+            const SizedBox(height: 32),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1),
+              decoration: InputDecoration(
+                prefixText: '₹ ',
+                prefixStyle: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: StitchTheme.textMuted),
+                hintText: '0',
+                hintStyle: const TextStyle(color: Colors.white24),
+                border: InputBorder.none,
+                helperText: 'Minimum deposit: ₹${widget.minDeposit}',
+                helperStyle: const TextStyle(color: StitchTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Quick Add', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _quickAmounts.map((amt) {
+                return InkWell(
+                  onTap: () => _addQuickAmount(amt),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      border: Border.all(color: Colors.white12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('+₹${amt.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _proceed,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: StitchTheme.primary,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: const Text('PROCEED TO SECURE PAY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
+                'Secured by Razorpay • Instant Wallet Credit',
+                style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            )
           ],
         ),
       ),

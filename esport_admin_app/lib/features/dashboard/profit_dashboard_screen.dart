@@ -71,7 +71,8 @@ class _ProfitDashboardScreenState extends State<ProfitDashboardScreen> {
     final netProfit = _tournamentCommissions - _platformFees; 
     
     return Scaffold(
-      appBar: AppBar(
+      backgroundColor: widget.isNested ? Colors.transparent : StitchTheme.background,
+      appBar: widget.isNested ? null : AppBar(
         title: const Text('Profit Dashboard', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
