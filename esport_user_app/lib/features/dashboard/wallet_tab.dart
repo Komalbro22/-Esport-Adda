@@ -29,6 +29,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   bool _isMoreLoading = false;
   bool _hasMore = true;
   static const int _pageSize = 20;
+  StreamSubscription? _walletSubscription;
 
   late final PaymentService _paymentService;
 
@@ -1026,17 +1027,6 @@ class _DepositSheetState extends State<_DepositSheet> {
     );
   }
 }
-
-class _RazorpayAddMoneySheet extends StatefulWidget {
-  final double minDeposit;
-  final String keyId;
-  final Function(double) onProceed;
-
-  const _RazorpayAddMoneySheet({
-    required this.minDeposit,
-    required this.keyId,
-    required this.onProceed,
-  });
 
 class _RazorpayAddMoneyScreen extends StatefulWidget {
   final double minDeposit;
