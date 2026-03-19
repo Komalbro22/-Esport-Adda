@@ -30,16 +30,11 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
   bool _hasMore = true;
   static const int _pageSize = 20;
 
-  late TabController _tabController;
-  final ScrollController _txScrollController = ScrollController();
-  StreamSubscription? _walletSubscription;
   late final PaymentService _paymentService;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _txScrollController.addListener(_onTxScroll);
     _fetchWalletData();
     _paymentService = PaymentService()
       ..onPaymentSuccess = (msg) {
@@ -51,19 +46,11 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
       };
   }
 
-  void _onTxScroll() {
-    if (_txScrollController.position.pixels >= _txScrollController.position.maxScrollExtent - 200) {
-      if (!_isMoreLoading && _hasMore && _tabController.index == 1) {
-        _loadMoreTransactions();
-      }
-    }
-  }
+  // History loading moved to separate screen
 
   @override
   void dispose() {
     _walletSubscription?.cancel();
-    _txScrollController.dispose();
-    _tabController.dispose();
     _walletStatsNotifier.dispose();
     _paymentService.dispose();
     super.dispose();
@@ -113,31 +100,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _loadMoreTransactions() async {
-    if (_isMoreLoading || !_hasMore) return;
-    
-    setState(() => _isMoreLoading = true);
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
-      final txs = await _supabase.from('wallet_transactions')
-          .select('id, type, amount, status, created_at, wallet_type')
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .range(_transactions.length, _transactions.length + _pageSize - 1);
-
-      if (mounted) {
-        setState(() {
-          final newTxs = List<Map<String, dynamic>>.from(txs);
-          _transactions.addAll(newTxs);
-          _hasMore = newTxs.length == _pageSize;
-          _isMoreLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isMoreLoading = false);
-    }
-  }
+  // Pagination handled by separate screen
 
   Future<void> _showAddMoney() async {
     setState(() => _isLoading = true);
@@ -221,17 +184,17 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
       return;
     }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _RazorpayAddMoneySheet(
-        minDeposit: minDeposit,
-        keyId: keyId,
-        onProceed: (amount) {
-          Navigator.pop(ctx);
-          _paymentService.openRazorpayCheckout(amount: amount, keyId: keyId);
-        },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => _RazorpayAddMoneyScreen(
+          minDeposit: minDeposit,
+          keyId: keyId,
+          onProceed: (amount) {
+            Navigator.pop(ctx);
+            _paymentService.openRazorpayCheckout(amount: amount, keyId: keyId);
+          },
+        ),
       ),
     );
   }
@@ -385,28 +348,12 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
         return Scaffold(
           backgroundColor: StitchTheme.background,
           appBar: AppBar(
+            backgroundColor: StitchTheme.background,
+            elevation: 0,
             title: const Text('FINANCIAL HUB', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 16)),
             centerTitle: true,
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: StitchTheme.primary,
-              indicatorWeight: 3,
-              labelColor: StitchTheme.primary,
-              unselectedLabelColor: StitchTheme.textMuted,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
-              tabs: const [
-                Tab(text: 'OVERVIEW'),
-                Tab(text: 'HISTORY'),
-              ],
-            ),
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildSummary(depositBal, winningBal, totalBal),
-              _buildTransactions(),
-            ],
-          ),
+          body: _buildSummary(depositBal, winningBal, totalBal),
         );
       }
     );
@@ -466,7 +413,9 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildQuickAction(Icons.history_rounded, 'History', () => setState(() => _tabController.animateTo(1))),
+                    _buildQuickAction(Icons.history_rounded, 'History', () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletHistoryScreen()));
+                    }),
                     const SizedBox(width: 24),
                     _buildQuickAction(Icons.security_rounded, 'Secure', () {}),
                   ],
@@ -638,116 +587,7 @@ class _WalletTabState extends State<WalletTab> with SingleTickerProviderStateMix
     );
   }
 
-  Widget _buildTransactions() {
-    if (_transactions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history_rounded, size: 64, color: StitchTheme.textMuted.withOpacity(0.2)),
-            const SizedBox(height: 16),
-            const Text('NO HISTORY YET', style: TextStyle(color: StitchTheme.textMuted, fontWeight: FontWeight.w900, letterSpacing: 2, fontSize: 12)),
-          ],
-        )
-      );
-    }
-    
-    return RefreshIndicator(
-      onRefresh: _fetchWalletData,
-      color: StitchTheme.primary,
-      backgroundColor: StitchTheme.surface,
-      child: Scrollbar(
-        controller: _txScrollController,
-        child: ListView.separated(
-          controller: _txScrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
-          itemCount: _transactions.length + (_hasMore ? 1 : 0),
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            if (index == _transactions.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: StitchLoading()),
-              );
-            }
-            final tx = _transactions[index];
-            final type = tx['type'].toString();
-            final isCredit = ['deposit', 'tournament_win', 'referral_bonus', 'signup_bonus'].contains(type);
-            final status = tx['status']?.toString() ?? 'completed';
-            final isPending = status == 'pending';
-            
-            return Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: StitchTheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: isPending ? StitchTheme.warning.withOpacity(0.1) : Colors.white.withOpacity(0.03)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: (isCredit ? StitchTheme.success : StitchTheme.error).withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isCredit ? Icons.add_rounded : Icons.remove_rounded, 
-                      color: isCredit ? StitchTheme.success : StitchTheme.error,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          type.replaceAll('_', ' ').toUpperCase(), 
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 0.5)
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat('MMM dd • HH:mm').format(DateTime.parse(tx['created_at']).toLocal()), 
-                          style: const TextStyle(color: StitchTheme.textMuted, fontSize: 11)
-                        ),
-                      ],
-                    )
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${isCredit ? '+' : '-'} ₹${tx['amount']}',
-                        style: TextStyle(
-                          color: isCredit ? StitchTheme.success : StitchTheme.error,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16
-                        )
-                      ),
-                      if (status != 'completed') ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          status.toUpperCase(),
-                          style: TextStyle(
-                            color: status == 'pending' ? StitchTheme.warning : StitchTheme.error,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1
-                          ),
-                        )
-                      ]
-                    ],
-                  )
-                ],
-              )
-            );
-          }
-        ),
-      ),
-    );
-  }
+  // buildTransactions moved to WalletHistoryScreen
 }
 
 class _BalanceSubCard extends StatelessWidget {
@@ -1198,13 +1038,30 @@ class _RazorpayAddMoneySheet extends StatefulWidget {
     required this.onProceed,
   });
 
+class _RazorpayAddMoneyScreen extends StatefulWidget {
+  final double minDeposit;
+  final String keyId;
+  final Function(double) onProceed;
+
+  const _RazorpayAddMoneyScreen({
+    required this.minDeposit,
+    required this.keyId,
+    required this.onProceed,
+  });
+
   @override
-  State<_RazorpayAddMoneySheet> createState() => _RazorpayAddMoneySheetState();
+  State<_RazorpayAddMoneyScreen> createState() => _RazorpayAddMoneyScreenState();
 }
 
-class _RazorpayAddMoneySheetState extends State<_RazorpayAddMoneySheet> {
-  final _amountController = TextEditingController();
-  final List<double> _quickAmounts = [50, 100, 500, 1000];
+class _RazorpayAddMoneyScreenState extends State<_RazorpayAddMoneyScreen> {
+  final _amountController = TextEditingController(text: '1000');
+  final List<double> _quickAmounts = [100, 500, 1000, 2000];
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -1213,8 +1070,7 @@ class _RazorpayAddMoneySheetState extends State<_RazorpayAddMoneySheet> {
   }
 
   void _addQuickAmount(double amount) {
-    final current = double.tryParse(_amountController.text) ?? 0;
-    _amountController.text = (current + amount).toStringAsFixed(0);
+    _amountController.text = amount.toStringAsFixed(0);
     _amountController.selection = TextSelection.fromPosition(TextPosition(offset: _amountController.text.length));
   }
 
@@ -1229,94 +1085,545 @@ class _RazorpayAddMoneySheetState extends State<_RazorpayAddMoneySheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
-      decoration: const BoxDecoration(
-        color: StitchTheme.surfaceHighlight,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+    final currentAmount = double.tryParse(_amountController.text.trim()) ?? 0;
+    const bgColor = Color(0xFF0B1120);
+    const cardColor = Color(0xFF1E293B);
+    const cyanText = Color(0xFF00E5FF);
+    final isEditing = FocusScope.of(context).hasFocus;
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF3B82F6)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('ADD CASH', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        centerTitle: false,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 48,
-                height: 4,
-                decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: StitchTheme.primary.withOpacity(0.15), shape: BoxShape.circle),
-                  child: const Icon(Icons.account_balance_wallet_rounded, color: StitchTheme.primary, size: 24),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              
+              // ENTER AMOUNT Header
+              const Center(
+                child: Text(
+                  'ENTER AMOUNT TO ADD',
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                 ),
-                const SizedBox(width: 16),
-                const Text('Top Up Wallet', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+              ),
+              const SizedBox(height: 16),
+              
+              // Custom Input Field with Gradient Glow Border
+              Center(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(2), // border width
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      colors: [
+                        cyanText,
+                        const Color(0xFF8B5CF6).withOpacity(0.5),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          '₹ ',
+                          style: TextStyle(color: cyanText, fontSize: 32, fontWeight: FontWeight.w600),
+                        ),
+                        IntrinsicWidth(
+                          child: TextField(
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900, height: 1.1),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+              
+              const Text('RECOMMENDED', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const SizedBox(height: 16),
+              
+              // Quick Amounts Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: _quickAmounts.map((amt) {
+                  final isSelected = currentAmount == amt;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => _addQuickAmount(amt),
+                      child: Container(
+                        margin: EdgeInsets.only(right: amt == _quickAmounts.last ? 0 : 8),
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: isSelected ? null : cardColor,
+                          gradient: isSelected 
+                              ? const LinearGradient(colors: [cyanText, Color(0xFF3B82F6)]) 
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '₹${amt.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              
+              const SizedBox(height: 48),
+              const Text('PAYMENT PROVIDER', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              const SizedBox(height: 16),
+              
+              // Provider Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      // Mocking razorpay logo
+                      child: Center(
+                        child: Container(
+                          width: double.infinity,
+                          height: 12,
+                          color: const Color(0xFF0F2650),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Razorpay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                          SizedBox(height: 4),
+                          Text('Secure and instant transfer', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.verified, color: Color(0xFF3B82F6), size: 28),
+                  ],
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Footer security line
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.lock_outline, color: Color(0xFF64748B), size: 14),
+                  const SizedBox(width: 4),
+                  const Text('SSL SECURED', style: TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 24),
+                  const Icon(Icons.security, color: Color(0xFF64748B), size: 14),
+                  const SizedBox(width: 4),
+                  const Text('PCI COMPLIANT', style: TextStyle(color: Color(0xFF64748B), fontSize: 10, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              // PROCEED BUTTON
+              Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [cyanText, Color(0xFF8B5CF6)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+                child: ElevatedButton(
+                  onPressed: _proceed,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text('PROCEED TO PAY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1.5)),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// Wallet History Premium Screen 
+// ==========================================
+class WalletHistoryScreen extends StatefulWidget {
+  const WalletHistoryScreen({super.key});
+
+  @override
+  State<WalletHistoryScreen> createState() => _WalletHistoryScreenState();
+}
+
+class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
+  final _supabase = Supabase.instance.client;
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _transactions = [];
+  bool _isMoreLoading = false;
+  bool _hasMore = true;
+  static const int _pageSize = 20;
+  final ScrollController _scrollController = ScrollController();
+  
+  String _currentFilter = 'ALL';
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onTxScroll);
+    _fetchHistory(refresh: true);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onTxScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isMoreLoading && _hasMore) {
+        _fetchHistory(refresh: false);
+      }
+    }
+  }
+
+  Future<void> _fetchHistory({required bool refresh}) async {
+    if (refresh) {
+      setState(() => _isLoading = true);
+      _hasMore = true;
+      _transactions.clear();
+    } else {
+      if (_isMoreLoading || !_hasMore) return;
+      setState(() => _isMoreLoading = true);
+    }
+
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      var query = _supabase.from('wallet_transactions')
+          .select('id, type, amount, status, created_at, wallet_type')
+          .eq('user_id', user.id);
+
+      if (_currentFilter == 'INCOME') {
+        query = query.inFilter('type', ['deposit', 'tournament_win', 'referral_bonus', 'signup_bonus']);
+      } else if (_currentFilter == 'SPENT') {
+        query = query.inFilter('type', ['withdraw', 'match_entry', 'market', 'tournament']);
+      }
+
+      final txs = await query.order('created_at', ascending: false)
+          .range(_transactions.length, _transactions.length + _pageSize - 1);
+
+      if (mounted) {
+        setState(() {
+          final newTxs = List<Map<String, dynamic>>.from(txs);
+          _transactions.addAll(newTxs);
+          _hasMore = newTxs.length == _pageSize;
+          _isLoading = false;
+          _isMoreLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isMoreLoading = false;
+        });
+      }
+    }
+  }
+
+  void _changeFilter(String filter) {
+    if (_currentFilter == filter) return;
+    setState(() => _currentFilter = filter);
+    _fetchHistory(refresh: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const bgColor = Color(0xFF0B1120);
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFFE2E8F0)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Transaction History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF3B82F6)),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 8)
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filter Pills Row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              children: [
+                _buildFilterPill('ALL'),
+                const SizedBox(width: 12),
+                _buildFilterPill('INCOME'),
+                const SizedBox(width: 12),
+                _buildFilterPill('SPENT'),
               ],
             ),
-            const SizedBox(height: 32),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -1),
-              decoration: InputDecoration(
-                prefixText: '₹ ',
-                prefixStyle: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: StitchTheme.textMuted),
-                hintText: '0',
-                hintStyle: const TextStyle(color: Colors.white24),
-                border: InputBorder.none,
-                helperText: 'Minimum deposit: ₹${widget.minDeposit}',
-                helperStyle: const TextStyle(color: StitchTheme.textMuted, fontSize: 13, fontWeight: FontWeight.bold),
-              ),
+          ),
+          
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Text(
+              'RECENT TRANSACTIONS', 
+              style: TextStyle(color: Color(0xFF3B82F6), fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1.5)
             ),
-            const SizedBox(height: 24),
-            const Text('Quick Add', style: TextStyle(color: StitchTheme.textMuted, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _quickAmounts.map((amt) {
-                return InkWell(
-                  onTap: () => _addQuickAmount(amt),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      border: Border.all(color: Colors.white12),
-                      borderRadius: BorderRadius.circular(20),
+          ),
+          
+          Expanded(
+            child: _isLoading 
+              ? const Center(child: StitchLoading())
+              : _transactions.isEmpty
+                ? const Center(child: Text('No transactions found', style: TextStyle(color: Colors.white54)))
+                : RefreshIndicator(
+                    onRefresh: () => _fetchHistory(refresh: true),
+                    color: const Color(0xFF00E5FF),
+                    backgroundColor: const Color(0xFF1E293B),
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: _transactions.length + (_hasMore ? 1 : 0),
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        if (index == _transactions.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: StitchLoading()),
+                          );
+                        }
+                        return _TransactionTile(tx: _transactions[index]);
+                      },
                     ),
-                    child: Text('+₹${amt.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _proceed,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: StitchTheme.primary,
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill(String filterType) {
+    final isSelected = _currentFilter == filterType;
+    return GestureDetector(
+      onTap: () => _changeFilter(filterType),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(
+          filterType,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TransactionTile extends StatelessWidget {
+  final Map<String, dynamic> tx;
+  const _TransactionTile({required this.tx});
+
+  @override
+  Widget build(BuildContext context) {
+    final typeStr = tx['type'].toString();
+    final amt = double.tryParse(tx['amount'].toString()) ?? 0;
+    
+    Color mainColor;
+    Color edgeColor;
+    IconData icon;
+    String titleStr;
+    String subText;
+
+    bool isCredit = ['deposit', 'tournament_win', 'referral_bonus', 'signup_bonus'].contains(typeStr);
+
+    if (typeStr == 'tournament_win') {
+      mainColor = const Color(0xFF10B981); // emerald green
+      edgeColor = mainColor;
+      icon = Icons.emoji_events;
+      titleStr = 'Tournament Win';
+      subText = 'Winning';
+    } else if (typeStr == 'match_entry' || typeStr == 'tournament') {
+      mainColor = const Color(0xFF3B82F6); // nice blue
+      edgeColor = mainColor;
+      icon = Icons.sports_esports;
+      titleStr = 'Match Entry';
+      subText = 'Tournament';
+    } else if (typeStr == 'deposit') {
+      mainColor = const Color(0xFF10B981); // emerald green
+      edgeColor = mainColor;
+      icon = Icons.account_balance_wallet;
+      titleStr = 'Wallet Top-up';
+      subText = 'Deposit';
+    } else if (typeStr == 'market') {
+      mainColor = const Color(0xFFF43F5E); // rose red
+      edgeColor = mainColor;
+      icon = Icons.shopping_bag;
+      titleStr = 'Market Purchase';
+      subText = 'Market';
+    } else if (typeStr == 'referral_bonus') {
+      mainColor = const Color(0xFF10B981);
+      edgeColor = mainColor;
+      icon = Icons.group;
+      titleStr = 'Referral Bonus';
+      subText = 'Reward';
+    } else if (typeStr == 'withdraw') {
+      mainColor = const Color(0xFFF43F5E);
+      edgeColor = mainColor;
+      icon = Icons.money_off;
+      titleStr = 'Wallet Withdrawal';
+      subText = 'Withdrawal';
+    } else {
+      mainColor = Colors.white;
+      edgeColor = Colors.white24;
+      icon = Icons.receipt_long;
+      titleStr = typeStr.replaceAll('_', ' ').toUpperCase();
+      subText = 'Transaction';
+    }
+
+    final dateStr = DateFormat('MMM dd').format(DateTime.parse(tx['created_at']).toLocal());
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF161E2E), // very dark secondary card
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left Edge Glow
+            Container(width: 3, color: edgeColor),
+            
+            // Content Layout
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Row(
+                  children: [
+                    // Icon Box
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: mainColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: mainColor, size: 22),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Title and subtitle
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            titleStr,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$dateStr • $subText',
+                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                          )
+                        ],
+                      ),
+                    ),
+                    
+                    // Amount
+                    Text(
+                      '${isCredit ? '+' : '-'}₹${amt.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        color: mainColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
-                child: const Text('PROCEED TO SECURE PAY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 1)),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Secured by Razorpay • Instant Wallet Credit',
-                style: TextStyle(color: StitchTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             )
           ],
