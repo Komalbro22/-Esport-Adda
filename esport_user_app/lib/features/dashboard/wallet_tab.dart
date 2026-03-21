@@ -1369,7 +1369,8 @@ class _WalletHistoryScreenState extends State<WalletHistoryScreen> {
           _isMoreLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Wallet history fetch failed: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;

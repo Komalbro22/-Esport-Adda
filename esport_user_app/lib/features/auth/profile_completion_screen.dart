@@ -48,7 +48,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen> {
       // 3. Sync OneSignal ID again to ensure it's captured now that records are established
       try {
         await OneSignalService().syncPlayerId();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('OneSignal sync failed (non-critical): $e');
+      }
 
       // 4. Apply referral if given (Edge Function)
       final refCode = _referralController.text.trim();

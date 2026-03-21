@@ -33,6 +33,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   padding: 1.5rem 5%;
   position: sticky;
   top: 0;
@@ -46,16 +47,62 @@ body {
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -1px;
+  white-space: nowrap;
   background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-download {
+  padding: 0.6rem 1.2rem !important;
+  font-size: 0.9rem !important;
+}
+
 .hero {
-  padding: 8rem 5% 4rem;
+  padding: 6rem 5% 5rem;
   text-align: center;
-  max-width: 1000px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+.hero-content {
+  position: relative;
+}
+
+.hero-cta {
+  margin-bottom: 1.5rem;
+}
+
+.btn-download {
+  font-size: 1.1rem !important;
+  padding: 1rem 2rem !important;
+}
+
+.btn-download-lg {
+  font-size: 1.2rem !important;
+  padding: 1.25rem 2.5rem !important;
+}
+
+.trust-badges {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.trust-badges span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .badge {
@@ -132,13 +179,247 @@ h1 span {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.stats-section {
+  padding: 3rem 5%;
+  background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.03) 50%, transparent 100%);
+}
+
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
-  padding: 4rem 5%;
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+.section-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  margin-top: 0;
+  margin-bottom: 3rem;
+  font-size: 1.1rem;
+}
+
+/* How it works */
+.how-it-works {
+  padding: 6rem 5%;
+  max-width: 1100px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.how-it-works h2,
+.features h2,
+.games-section h2,
+.testimonials-section h2,
+.faq-section h2 {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  margin-bottom: 0.5rem;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.step-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 2rem;
+  border-radius: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.step-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-4px);
+}
+
+.step-number {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  background: var(--primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.step-icon {
+  color: var(--primary);
+  margin: 1rem 0;
+}
+
+.step-card h3 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.step-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* Games */
+.games-section {
+  padding: 6rem 5%;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.games-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.game-chip {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 0.75rem 1.5rem;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.game-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Testimonials */
+.testimonials-section {
+  padding: 6rem 5%;
+  background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.04) 50%, transparent 100%);
+}
+
+.testimonials-section h2 {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.testimonial-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 2rem;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.testimonial-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.testimonial-card .stars {
+  color: #eab308;
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 2px;
+}
+
+.testimonial-card p {
+  color: var(--text-main);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.testimonial-card span {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* FAQ */
+.faq-section {
+  padding: 6rem 5%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.faq-section h2 {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.faq-item {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 1.5rem;
+  border-radius: 16px;
+}
+
+.faq-item h4 {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: white;
+}
+
+.faq-item p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Final CTA */
+.final-cta {
+  padding: 6rem 5%;
+}
+
+.cta-box {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 24px;
+  padding: 4rem;
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cta-box h2 {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.cta-box p {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.cta-trust {
+  margin-top: 1.5rem;
+  color: #22c55e;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .stat-card {
@@ -246,10 +527,68 @@ footer {
 @media (max-width: 768px) {
   .hero {
     padding-top: 4rem;
+    padding-bottom: 3rem;
+  }
+
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .trust-badges {
+    gap: 1rem;
+    font-size: 0.8rem;
   }
 
   .navbar {
-    padding: 1rem 5%;
+    padding: 0.9rem 5%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .logo {
+    font-size: 1.1rem;
+    align-self: flex-start;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .nav-link {
+    font-size: 0.85rem;
+  }
+
+  .nav-download {
+    padding: 0.5rem 0.8rem !important;
+    font-size: 0.8rem !important;
+    white-space: nowrap;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cta-box {
+    padding: 2rem;
+  }
+
+  .cta-trust {
+    flex-direction: column;
   }
 }
 
@@ -313,4 +652,61 @@ footer {
 
 .footer-links-group {
   margin: 0 2rem;
+}
+
+.nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: white;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 4rem 5%;
+}
+
+.tournament-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.tournament-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 1.5rem;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.tournament-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.blog-card {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  padding: 1.5rem;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.blog-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(255, 255, 255, 0.04);
 }

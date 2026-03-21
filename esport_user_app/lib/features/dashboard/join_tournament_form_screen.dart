@@ -118,8 +118,6 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
         });
       }
 
-      print('DEBUG: Calling join_tournament with session valid: ${session.user.id}');
-
       final response = await _supabase.functions.invoke(
         'join_tournament',
         body: {
@@ -127,8 +125,6 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
           'team_data': teamData
         },
       );
-      
-      print('DEBUG: Response status: ${response.status}');
 
       if (response.status == 200) {
         if (mounted) {

@@ -253,6 +253,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         _buildSimpleNavTile('Branding & Configuration', Icons.auto_awesome_rounded, '/app_settings'),
                         _buildSimpleNavTile('Cloud Asset Gallery', Icons.cloud_done_rounded, '/assets'),
                         _buildSimpleNavTile('Legal Documents (CMS)', Icons.gavel_rounded, '/legal_cms'),
+                        _buildSimpleNavTile('Blog & News', Icons.article_rounded, '/blog_management'),
                         
                         const SizedBox(height: 60),
                       ],

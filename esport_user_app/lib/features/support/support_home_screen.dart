@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SupportHomeScreen extends StatefulWidget {
   const SupportHomeScreen({Key? key}) : super(key: key);
@@ -15,11 +16,37 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
   List<Map<String, dynamic>> _tickets = [];
+  String? _telegramUrl;
 
   @override
   void initState() {
     super.initState();
     _fetchTickets();
+    _fetchTelegramUrl();
+  }
+
+  Future<void> _fetchTelegramUrl() async {
+    try {
+      final data = await _supabase
+          .from('website_settings')
+          .select('value')
+          .eq('key', 'contact_info')
+          .maybeSingle();
+      if (data != null && mounted) {
+        final contactInfo = data['value'] as Map<String, dynamic>?;
+        final raw = contactInfo?['telegram']?.toString().trim();
+        if (raw != null && raw.isNotEmpty) {
+          final url = raw.startsWith('http') ? raw : 'https://t.me/${raw.replaceFirst(RegExp(r'^@'), '')}';
+          setState(() => _telegramUrl = url);
+        } else {
+          setState(() => _telegramUrl = 'https://t.me/esportadda');
+        }
+      } else if (mounted) {
+        setState(() => _telegramUrl = 'https://t.me/esportadda');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _telegramUrl = 'https://t.me/esportadda');
+    }
   }
 
   Future<void> _fetchTickets() async {
@@ -133,8 +160,14 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
             subtitle: 'Quick response',
             icon: Icons.send_rounded,
             color: const Color(0xFF0088cc),
-            onTap: () {
-              // TODO: Add Telegram Link
+            onTap: () async {
+              final url = _telegramUrl ?? 'https://t.me/esportadda';
+              final uri = Uri.tryParse(url);
+              if (uri != null && await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              } else if (mounted) {
+                StitchSnackbar.showError(context, 'Could not open Telegram');
+              }
             },
           ),
         ),

@@ -156,7 +156,9 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                  'is_broadcast': false
                },
              );
-           } catch (_) {}
+           } catch (e) {
+             debugPrint('Send notification failed: $e');
+           }
          }
       }
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
@@ -64,7 +65,7 @@ class AuthService {
       });
     } catch (e) {
       // Silently fail for logging to not block main flow
-      print('Activity log error: $e');
+      debugPrint('Activity log error: $e');
     }
   }
 }

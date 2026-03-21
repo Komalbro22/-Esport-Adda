@@ -163,7 +163,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               // Fallback: Ensure wallet is created even if referral bonus failed
               try {
                 await Supabase.instance.client.from('user_wallets').upsert({'user_id': user.id});
-              } catch (_) {}
+              } catch (e) {
+                debugPrint('Wallet upsert fallback failed: $e');
+              }
             }
           }
 
@@ -190,7 +192,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               return;
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('OneSignal sync or profile check failed: $e');
+        }
         if (mounted) context.go('/dashboard');
       }
     } on AuthException catch (e) {

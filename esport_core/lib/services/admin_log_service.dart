@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'admin_permission_service.dart';
 
@@ -23,8 +24,8 @@ class AdminLogService {
         'target_id': targetId,
         'details': details,
       });
-    } catch (_) {
-      // Fail silently
+    } catch (e) {
+      debugPrint('Admin log insert failed (non-critical): $e');
     }
   }
 }

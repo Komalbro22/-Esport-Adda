@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Holds the current admin's role and permissions in memory after login.
@@ -82,7 +83,8 @@ class AdminPermissionService {
               .eq('user_id', uid)
               .maybeSingle();
           _perms = perms ?? {};
-        } catch (_) {
+        } catch (e) {
+          debugPrint('Failed to load admin permissions: $e');
           _perms = {};
         }
       } else {
@@ -90,7 +92,8 @@ class AdminPermissionService {
       }
 
       _loaded = true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Admin permission load failed: $e');
       _loaded = false;
     }
   }

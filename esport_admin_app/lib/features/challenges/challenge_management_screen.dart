@@ -96,7 +96,9 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
           _newPlayersCount = newUsersCount;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Challenge management fetch failed: $e');
+    }
   }
 
   @override

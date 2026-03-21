@@ -60,7 +60,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> with SingleTickerPr
       if (user['referred_by'] != null) {
         try {
           referredBy = await _supabase.from('users').select('id, username').eq('referral_code', user['referred_by']).maybeSingle();
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Failed to fetch referrer: $e');
+        }
       }
 
       final referrals = await _supabase

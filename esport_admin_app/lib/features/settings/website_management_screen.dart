@@ -27,6 +27,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
   final _supportEmailController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _instagramController = TextEditingController();
+  final _telegramController = TextEditingController();
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -62,6 +63,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
               _supportEmailController.text = value['email'] ?? '';
               _whatsappController.text = value['whatsapp'] ?? '';
               _instagramController.text = value['instagram'] ?? '';
+              _telegramController.text = value['telegram'] ?? '';
             }
           }
           _isLoading = false;
@@ -135,6 +137,7 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
         'email': _supportEmailController.text.trim(),
         'whatsapp': _whatsappController.text.trim(),
         'instagram': _instagramController.text.trim(),
+        'telegram': _telegramController.text.trim(),
       };
 
       await _supabase.from('website_settings').upsert({
@@ -228,6 +231,8 @@ class _WebsiteManagementScreenState extends State<WebsiteManagementScreen> {
                 StitchInput(label: 'WhatsApp Number', controller: _whatsappController),
                 const SizedBox(height: 16),
                 StitchInput(label: 'Instagram URL', controller: _instagramController),
+                const SizedBox(height: 16),
+                StitchInput(label: 'Telegram (URL or @username)', controller: _telegramController, hintText: 'e.g. https://t.me/esportadda or esportadda'),
               ],
             ),
             const SizedBox(height: 32),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'image_optimizer.dart';
@@ -34,7 +35,7 @@ class ImgBBService {
       }
     } catch (e) {
       // Log error or handle as needed
-      print('ImgBB Upload Error: $e');
+      debugPrint('ImgBB Upload Error: $e');
     }
     return null;
   }

@@ -118,8 +118,8 @@ class _TournamentManagementScreenState extends State<TournamentManagementScreen>
     final isEditing = tournament != null;
     final isCopying = copyFrom != null;
 
-    // Fix: Must select is_active to filter active games
-    final gamesRes = await _supabase.from('games').select('id, name, is_active');
+    // Fix: Must select is_active and challenge_enabled to filter games correctly
+    final gamesRes = await _supabase.from('games').select('id, name, is_active, challenge_enabled');
     final List<Map<String, dynamic>> games = List<Map<String, dynamic>>.from(gamesRes);
     // Filter out games that have challenges enabled (cannot have tournaments)
     final activeGames = games.where((g) => g['is_active'] == true && g['challenge_enabled'] != true).toList();

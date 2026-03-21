@@ -57,7 +57,8 @@ class _TournamentListScreenState extends State<TournamentListScreen> with Ticker
         'challenge_enabled': gameRes['challenge_enabled'] == true,
         'tournament_count': count,
       };
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Tournament list data check failed: $e');
       return {'challenge_enabled': false, 'tournament_count': 0};
     }
   }

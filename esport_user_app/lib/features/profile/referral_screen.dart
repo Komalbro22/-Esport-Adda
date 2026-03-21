@@ -245,7 +245,8 @@ class _ReferralScreenState extends State<ReferralScreen> {
     try {
       final date = DateTime.parse(dateStr);
       return '${date.day}/${date.month}/${date.year}';
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Invalid date format: $dateStr - $e');
       return '';
     }
   }

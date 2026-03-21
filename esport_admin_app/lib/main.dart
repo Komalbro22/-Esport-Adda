@@ -28,6 +28,7 @@ import 'features/admins/edit_admin_permissions_screen.dart';
 import 'features/admins/admin_activity_log_screen.dart';
 import 'features/users/user_activity_log_screen.dart';
 import 'features/settings/legal_management_screen.dart';
+import 'features/settings/blog_management_screen.dart';
 import 'features/disputes/dispute_center_screen.dart';
 import 'features/disputes/dispute_detail_screen.dart';
 import 'features/users/fair_play_score_logs_screen.dart';
@@ -216,6 +217,13 @@ final _router = GoRouter(
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.isSuperAdmin,
         child: const LegalManagementScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/blog_management',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin,
+        child: const BlogManagementScreen(),
       ),
     ),
     GoRoute(

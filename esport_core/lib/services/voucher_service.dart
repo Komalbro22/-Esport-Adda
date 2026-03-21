@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/voucher_model.dart';
 import 'dart:convert';
@@ -171,7 +172,7 @@ class VoucherService {
           
       return (response as List).map((json) => VoucherWithdrawRequest.fromJson(json)).toList();
     } catch (e) {
-      print('Error fetching voucher requests: $e');
+      debugPrint('Error fetching voucher requests: $e');
       rethrow;
     }
   }
