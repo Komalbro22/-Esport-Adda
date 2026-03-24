@@ -25,3 +25,6 @@ export 'services/voucher_service.dart';
 export 'services/tournament_prize_service.dart';
 export 'services/onesignal_service.dart';
 export 'services/cache_service.dart';
+export 'models/shop_product_model.dart';
+export 'models/shop_order_model.dart';
+export 'services/shop_service.dart';

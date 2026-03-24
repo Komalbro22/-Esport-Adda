@@ -36,6 +36,9 @@ import 'features/challenges/challenge_analytics_screen.dart';
 import 'features/challenges/challenge_management_screen.dart';
 import 'features/vouchers/voucher_management_screen.dart';
 import 'features/promo/promo_management_screen.dart';
+import 'features/shop/admin_shop_dashboard.dart';
+import 'features/shop/admin_product_form.dart';
+import 'features/shop/admin_order_detail.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -266,6 +269,34 @@ final _router = GoRouter(
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.isSuperAdmin,
         child: const PromoManagementScreen(),
+      ),
+    ),
+    GoRoute(
+      path: '/shop',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+        child: const AdminShopDashboard(),
+      ),
+    ),
+    GoRoute(
+      path: '/shop/product/new',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+        child: const AdminProductForm(),
+      ),
+    ),
+    GoRoute(
+      path: '/shop/product/:id',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+        child: AdminProductForm(existingProduct: state.extra as ShopProduct?),
+      ),
+    ),
+    GoRoute(
+      path: '/shop/order/:id',
+      builder: (context, state) => PermissionGuard(
+        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+        child: AdminOrderDetail(order: state.extra as ShopOrder),
       ),
     ),
   ],

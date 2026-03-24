@@ -9,6 +9,7 @@ import 'profile_tab.dart';
 import 'my_matches_screen.dart';
 import '../profile/global_leaderboard_screen.dart';
 import '../notifications/notification_service.dart';
+import '../shop/shop_dashboard_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -22,6 +23,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   final List<Widget> _pages = [
     const HomeTab(),
+    const ShopDashboardScreen(isBottomNav: true),
     const MyMatchesScreen(isBottomNav: true),
     const GlobalLeaderboardScreen(isBottomNav: true),
     const ProfileTab(),
@@ -94,6 +96,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icon(Icons.sports_esports_outlined, size: 24),
               activeIcon: Icon(Icons.sports_esports, size: 26),
               label: 'Games',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_bag_outlined, size: 24),
+              activeIcon: Icon(Icons.shopping_bag, size: 26),
+              label: 'Shop',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.history_rounded, size: 24),

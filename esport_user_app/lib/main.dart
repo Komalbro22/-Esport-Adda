@@ -35,6 +35,8 @@ import 'features/dashboard/voucher_amounts_screen.dart';
 import 'features/dashboard/voucher_history_screen.dart';
 import 'features/profile/public_profile_screen.dart';
 import 'features/profile/redeem_code_screen.dart';
+import 'features/shop/product_detail_screen.dart';
+import 'features/shop/order_history_screen.dart';
 
 @pragma('vm:entry-point')
 // DELETED _firebaseMessagingBackgroundHandler as we move to OneSignal
@@ -232,6 +234,20 @@ final _router = GoRouter(
     GoRoute(
       path: '/redeem_code',
       builder: (context, state) => const RedeemCodeScreen(),
+    ),
+    GoRoute(
+      path: '/shop/product/:id',
+      builder: (context, state) {
+        final product = state.extra as ShopProduct?;
+        return ProductDetailScreen(
+          productId: state.pathParameters['id']!,
+          initialProduct: product,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/shop/orders',
+      builder: (context, state) => const OrderHistoryScreen(),
     ),
   ],
 );
