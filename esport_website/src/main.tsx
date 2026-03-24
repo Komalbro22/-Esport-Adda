@@ -9,6 +9,14 @@ if (rootEl) {
       <App />
     </StrictMode>,
   );
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((err) => {
+        console.warn('Service worker registration failed:', err);
+      });
+    });
+  }
 } else {
   console.error('Root element not found');
 }

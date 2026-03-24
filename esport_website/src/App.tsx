@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { HelmetProvider } from 'react-helmet-async';
 import { supabase } from './supabase';
 import { Download, Zap, Trophy, Shield, Users, Instagram, Send, Mail, ArrowLeft, Lock, CreditCard, CheckCircle2, Star, Smartphone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BrowserRouter as Router, Routes, Route, Link, useParams, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { TournamentsPage } from './pages/TournamentsPage';
-import { BlogPage } from './pages/BlogPage';
-import { BlogPostPage } from './pages/BlogPostPage';
 import { SeoHead } from './components/SeoHead';
 import './App.css';
+
+const TournamentsPage = lazy(() => import('./pages/TournamentsPage').then((m) => ({ default: m.TournamentsPage })));
+const BlogPage = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
+const BlogPostPage = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
 
 interface WebSettings {
   contact_info: {
@@ -321,13 +322,15 @@ const App: React.FC = () => {
       <Router>
         <div className="app-container">
           <Navbar userAppUrl={settings?.apk_links?.user_app} />
-          <Routes>
-            <Route path="/" element={<Home settings={settings} />} />
-            <Route path="/tournaments" element={<TournamentsPage />} />
-            <Route path="/blog" element={<BlogPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
-            <Route path="/legal/:docId" element={<LegalPage />} />
-          </Routes>
+          <Suspense fallback={<div style={{ padding: '4rem 5%', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>}>
+            <Routes>
+              <Route path="/" element={<Home settings={settings} />} />
+              <Route path="/tournaments" element={<TournamentsPage />} />
+              <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
+              <Route path="/legal/:docId" element={<LegalPage />} />
+            </Routes>
+          </Suspense>
           <Footer settings={settings} />
         </div>
       </Router>
