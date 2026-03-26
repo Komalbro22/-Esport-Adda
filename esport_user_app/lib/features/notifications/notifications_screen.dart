@@ -33,9 +33,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _notifications = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
       });
-
-      // Mark all as read after viewing
-      await _markAllAsRead();
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
       setState(() => _isLoading = false);
@@ -44,20 +41,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markAllAsRead() async {
     final unreadIds = _notifications
-        .where((n) => n['is_read'] == false)
+        .where((n) => (n['is_read'] ?? false) == false)
         .map((n) => n['id'])
         .toList();
 
-    if (unreadIds.isNotEmpty) {
-      try {
-        await _supabase
-            .from('notifications')
-            .update({'is_read': true})
-            .inFilter('id', unreadIds);
-      } catch (e) {
-        debugPrint('Error marking notifications as read: $e');
-      }
+    if (unreadIds.isEmpty) return;
+
+    try {
+      await _supabase
+          .from('notifications')
+          .update({'is_read': true})
+          .inFilter('id', unreadIds);
+    } catch (e) {
+      debugPrint('Error marking notifications as read: $e');
     }
+
+    await _fetchNotifications();
   }
 
   IconData _getIconForType(String type) {
@@ -74,6 +73,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.gavel;
       case 'admin':
         return Icons.admin_panel_settings;
+      case 'admin_push':
+        return Icons.admin_panel_settings_rounded;
+      case 'shop_order':
+        return Icons.shopping_bag_rounded;
       default:
         return Icons.notifications;
     }
@@ -85,6 +88,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: const Text('Notifications'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.done_all_rounded),
+            onPressed: _isLoading ? null : _markAllAsRead,
+            tooltip: 'Mark all as read',
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: StitchLoading())
@@ -111,13 +121,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       final notification = _notifications[index];
                       final bool isRead = notification['is_read'] ?? false;
                       final DateTime createdAt = DateTime.parse(notification['created_at']);
+                    final String message =
+                        (notification['message'] ?? notification['body'] ?? '').toString();
+                    final String type = (notification['type'] ?? 'admin_push').toString();
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: StitchTheme.primary.withOpacity(0.1),
-                            child: Icon(_getIconForType(notification['type']), color: StitchTheme.primary),
+                          child: Icon(_getIconForType(type), color: StitchTheme.primary),
                           ),
                           title: Text(
                             notification['title'],
@@ -129,7 +142,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 4),
-                              Text(notification['message']),
+                            Text(message),
                               const SizedBox(height: 4),
                               Text(
                                 DateFormat('dd MMM, hh:mm a').format(createdAt),
@@ -138,7 +151,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ],
                           ),
                           onTap: () {
-                            // Deep linking logic based on notification['type'] and notification['reference_id']
+                          // Mark as read when user taps.
+                          final id = notification['id'];
+                          if (id != null && (notification['is_read'] ?? false) == false) {
+                            _supabase.from('notifications').update({'is_read': true}).eq('id', id).then((_) {
+                              _fetchNotifications();
+                            }).catchError((e) {
+                              debugPrint('Error marking notification as read: $e');
+                            });
+                          }
                           },
                         ),
                       );

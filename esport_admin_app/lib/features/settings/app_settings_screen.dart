@@ -21,8 +21,12 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
   final _referralSenderController = TextEditingController();
   final _referralReceiverController = TextEditingController();
   final _leaderboardLimitController = TextEditingController();
+  final _maintenanceMessageController = TextEditingController();
+  final _userVersionController = TextEditingController();
+  final _userUpdateUrlController = TextEditingController();
   
   bool _isLoading = true;
+  bool _isMaintenanceMode = false;
   bool _isSaving = false;
   String? _logoUrl;
   String? _adminLogoUrl;
@@ -59,6 +63,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
             _referralSenderController.text = (data['referral_bonus_sender'] ?? 0).toString();
             _referralReceiverController.text = (data['referral_bonus_receiver'] ?? 0).toString();
             _leaderboardLimitController.text = (data['leaderboard_limit'] ?? 50).toString();
+            _isMaintenanceMode = data['is_maintenance_mode'] ?? false;
+            _maintenanceMessageController.text = data['maintenance_message'] ?? 'We are currently under maintenance. Please check back later.';
+            _userVersionController.text = data['user_app_version'] ?? '1.0.0';
+            _userUpdateUrlController.text = data['user_app_update_url'] ?? '';
           }
           _isLoading = false;
         });
@@ -133,6 +141,10 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
         'referral_bonus_sender': double.tryParse(_referralSenderController.text) ?? 10,
         'referral_bonus_receiver': double.tryParse(_referralReceiverController.text) ?? 10,
         'leaderboard_limit': int.tryParse(_leaderboardLimitController.text) ?? 50,
+        'is_maintenance_mode': _isMaintenanceMode,
+        'maintenance_message': _maintenanceMessageController.text.trim(),
+        'user_app_version': _userVersionController.text.trim(),
+        'user_app_update_url': _userUpdateUrlController.text.trim(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
@@ -281,6 +293,60 @@ class _AppSettingsScreenState extends State<AppSettingsScreen> {
                     controller: _leaderboardLimitController,
                     keyboardType: TextInputType.number,
                     hintText: 'Number of players to show in leaderboard',
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            
+            StitchCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Maintenance & Updates', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: StitchTheme.textMain)),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Maintenance Mode', style: TextStyle(fontWeight: FontWeight.w600, color: StitchTheme.textMain)),
+                          Text(
+                            _isMaintenanceMode ? 'Users will see maintenance screen' : 'App is live for all users',
+                            style: TextStyle(color: _isMaintenanceMode ? Colors.orange : StitchTheme.textMuted, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Switch(
+                        value: _isMaintenanceMode,
+                        onChanged: (val) => setState(() => _isMaintenanceMode = val),
+                        activeColor: StitchTheme.primary,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'Maintenance Message',
+                    controller: _maintenanceMessageController,
+                    maxLines: 2,
+                    hintText: 'Shown to users during maintenance',
+                  ),
+                  const SizedBox(height: 24),
+                  const Divider(color: StitchTheme.surfaceHighlight),
+                  const SizedBox(height: 24),
+                  StitchInput(
+                    label: 'Latest User App Version',
+                    controller: _userVersionController,
+                    hintText: 'e.g., 1.0.1',
+                  ),
+                  const SizedBox(height: 16),
+                  StitchInput(
+                    label: 'User App Update URL',
+                    controller: _userUpdateUrlController,
+                    hintText: 'Direct link to download the new APK',
                   ),
                 ],
               ),

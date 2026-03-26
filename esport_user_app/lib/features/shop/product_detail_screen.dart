@@ -66,89 +66,105 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: StitchTheme.surface,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AspectRatio(
-              aspectRatio: 1,
-              child: Container(
-                color: StitchTheme.surfaceHighlight.withOpacity(0.5),
-                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                    ? Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.image_not_supported, color: StitchTheme.textMuted, size: 80),
-                      )
-                    : const Icon(Icons.shopping_bag, color: StitchTheme.textMuted, size: 80),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Main scrollable content.
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 120), // keep space for the fixed button
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (product.category != null)
-                        StitchBadge(
-                          text: product.category!,
-                          color: StitchTheme.secondary,
-                        ),
-                      Text(
-                        '₹${product.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          color: StitchTheme.primary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 24,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      color: StitchTheme.textMain,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: Container(
+                      color: StitchTheme.surfaceHighlight.withOpacity(0.5),
+                      child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                          ? Image.network(
+                              product.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.image_not_supported, color: StitchTheme.textMuted, size: 80),
+                            )
+                          : const Icon(Icons.shopping_bag, color: StitchTheme.textMuted, size: 80),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Description',
-                    style: TextStyle(
-                      color: StitchTheme.textMain,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    product.description ?? 'No description available.',
-                    style: const TextStyle(
-                      color: StitchTheme.textMuted,
-                      height: 1.5,
-                      fontSize: 16,
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            if (product.category != null)
+                              StitchBadge(
+                                text: product.category!,
+                                color: StitchTheme.secondary,
+                              ),
+                            Text(
+                              '₹${product.price.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                color: StitchTheme.primary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 24,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          product.name,
+                          style: const TextStyle(
+                            color: StitchTheme.textMain,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Description',
+                          style: TextStyle(
+                            color: StitchTheme.textMain,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          product.description ?? 'No description available.',
+                          style: const TextStyle(
+                            color: StitchTheme.textMuted,
+                            height: 1.5,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: StitchButton(
-            text: 'Buy Now',
-            isLoading: _isPurchasing,
-            onPressed: _handlePurchase,
           ),
-        ),
+
+          // Fixed bottom button.
+          // On Flutter Web, `Align` inside a `Stack` can accidentally expand the child.
+          // Use `Positioned` + fixed height so the button stays small.
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 24,
+            child: SizedBox(
+              height: 56,
+              child: StitchButton(
+                text: 'Buy Now',
+                isLoading: _isPurchasing,
+                onPressed: _handlePurchase,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

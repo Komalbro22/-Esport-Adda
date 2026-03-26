@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:go_router/go_router.dart';
+import 'features/maintenance/maintenance_update_guard.dart';
 import 'package:flutter/foundation.dart';
 import 'features/auth/otp_verification_screen.dart';
 import 'features/auth/profile_completion_screen.dart';
@@ -88,6 +89,9 @@ class _GamerAppState extends State<GamerApp> {
       theme: StitchTheme.themeData,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return MaintenanceUpdateGuard(child: child!);
+      },
     );
   }
 }

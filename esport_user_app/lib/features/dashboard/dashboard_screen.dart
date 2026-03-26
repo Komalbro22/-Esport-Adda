@@ -54,7 +54,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Precache critical assets
-    precacheImage(const AssetImage('assets/images/logo.png'), context);
+    // Your pubspec.yaml exposes `assets/logo.png` (not `assets/images/logo.png`).
+    // On Flutter Web the wrong path throws and can interrupt rendering.
+    precacheImage(const AssetImage('assets/logo.png'), context);
     // You can also precache network images if you have their URLs early
   }
 

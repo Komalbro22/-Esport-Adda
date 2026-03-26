@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminOrderDetail extends StatefulWidget {
   final ShopOrder order;
@@ -38,6 +39,31 @@ class _AdminOrderDetailState extends State<AdminOrderDetail> {
         _status,
         deliveryData: _deliveryDataController.text.trim(),
       );
+
+      // Notify the user when their order changes.
+      if (_status == 'completed' || _status == 'cancelled') {
+        final title = _status == 'completed' ? 'Shop Order Completed' : 'Shop Order Cancelled';
+        final body = _status == 'completed'
+            ? 'Your shop order is completed. Check Order History for the delivery info.'
+            : 'Your shop order was cancelled and your wallet was refunded.';
+        try {
+          await Supabase.instance.client.functions.invoke(
+            'send_notification',
+            body: {
+              'user_id': widget.order.userId,
+              'title': title,
+              'body': body,
+              'type': 'shop_order',
+              'related_id': widget.order.id,
+              'is_broadcast': false,
+            },
+          );
+        } catch (e) {
+          // Don't block order updates if notifications fail.
+          debugPrint('Shop order notification failed: $e');
+        }
+      }
+
       StitchSnackbar.showSuccess(context, 'Order updated successfully');
       if (mounted) context.pop();
     } catch (e) {

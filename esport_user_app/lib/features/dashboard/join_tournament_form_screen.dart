@@ -44,9 +44,11 @@ class _JoinTournamentFormScreenState extends State<JoinTournamentFormScreen> {
         setState(() {
           _tournament = data;
           final type = _tournament!['tournament_type'];
+          final typeLower = type?.toString().toLowerCase() ?? '';
           int numTeammates = 0;
-          if (type == 'duo') numTeammates = 1;
-          if (type == 'squad') numTeammates = 3;
+          // Case-insensitive matching because Supabase data may not be lowercase.
+          if (typeLower == 'duo') numTeammates = 1;
+          if (typeLower == 'squad') numTeammates = 3;
           
           for (int i = 0; i < numTeammates; i++) {
             _teammateNameControllers.add(TextEditingController());

@@ -72,6 +72,12 @@ class ShopService {
   }
 
   Future<void> updateOrderStatus(String orderId, String status, {String? deliveryData}) async {
+    // For cancellations we must call the RPC so the user's wallet gets refunded.
+    if (status == 'cancelled') {
+      await _supabase.rpc('cancel_shop_order', params: {'p_order_id': orderId});
+      return;
+    }
+
     final data = <String, dynamic>{
       'status': status,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -79,6 +85,7 @@ class ShopService {
     if (deliveryData != null) {
       data['delivery_data'] = deliveryData;
     }
+
     await _supabase.from('shop_orders').update(data).eq('id', orderId);
   }
 
@@ -89,6 +96,10 @@ class ShopService {
       'p_product_id': productId,
     });
     return response as Map<String, dynamic>;
+  }
+
+  Future<void> cancelOrder(String orderId) async {
+    await _supabase.rpc('cancel_shop_order', params: {'p_order_id': orderId});
   }
 
   // Global settings

@@ -68,10 +68,46 @@ serve(async (req) => {
         }
 
         // DB Log
+        // Your DB schema has existed in 2 shapes:
+        // 1) title + message + type + reference_id
+        // 2) title + body (legacy)
+        // To make notifications reliable, try the modern schema first, then fallback to legacy.
         if (targetUserIds.length > 0) {
-            await supabaseAdmin.from('notifications').insert(targetUserIds.map(uid => ({
-                user_id: uid, title, message: body, type: type || 'admin_push', reference_id: related_id || tournament_id
-            })));
+            const messageText = body;
+            const referenceId = related_id || tournament_id;
+
+            try {
+                await supabaseAdmin.from('notifications').insert(
+                    targetUserIds.map((uid) => ({
+                        user_id: uid,
+                        title,
+                        message: messageText,
+                        type: type || 'admin_push',
+                        reference_id: referenceId
+                    }))
+                );
+            } catch (e) {
+                // Fallback insert for legacy schema (no message/type/reference_id)
+                try {
+                    await supabaseAdmin.from('notifications').insert(
+                        targetUserIds.map((uid) => ({
+                            user_id: uid,
+                            title,
+                            body: messageText
+                        }))
+                    );
+                } catch (e2) {
+                    return new Response(
+                        JSON.stringify({
+                            success: false,
+                            error: 'Failed to save notifications to DB',
+                            insert_error_modern: e,
+                            insert_error_legacy: e2
+                        }),
+                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    );
+                }
+            }
         }
 
         // ONE SIGNAL SEND

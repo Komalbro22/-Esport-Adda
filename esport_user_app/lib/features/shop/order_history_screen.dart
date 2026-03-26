@@ -88,23 +88,38 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final order = _orders[index];
-        return _OrderCard(order: order);
+        return _OrderCard(
+          order: order,
+          onCancelled: _loadOrders,
+        );
       },
     );
   }
 }
 
-class _OrderCard extends StatelessWidget {
+class _OrderCard extends StatefulWidget {
   final ShopOrder order;
+  final Future<void> Function() onCancelled;
 
-  const _OrderCard({required this.order});
+  const _OrderCard({
+    required this.order,
+    required this.onCancelled,
+  });
+
+  @override
+  State<_OrderCard> createState() => _OrderCardState();
+}
+
+class _OrderCardState extends State<_OrderCard> {
+  final _shopService = ShopService();
+  bool _isCancelling = false;
 
   @override
   Widget build(BuildContext context) {
     Color statusColor;
     IconData statusIcon;
 
-    switch (order.status) {
+    switch (widget.order.status) {
       case 'completed':
         statusColor = StitchTheme.success;
         statusIcon = Icons.check_circle;
@@ -147,7 +162,7 @@ class _OrderCard extends StatelessWidget {
                     Icon(statusIcon, size: 14, color: statusColor),
                     const SizedBox(width: 4),
                     Text(
-                      order.status.toUpperCase(),
+                      widget.order.status.toUpperCase(),
                       style: TextStyle(
                         color: statusColor,
                         fontWeight: FontWeight.bold,
@@ -165,7 +180,7 @@ class _OrderCard extends StatelessWidget {
             children: [
               const Text('Amount', style: TextStyle(color: StitchTheme.textMuted)),
               Text(
-                '₹${order.amount.toStringAsFixed(0)}',
+                '₹${widget.order.amount.toStringAsFixed(0)}',
                 style: const TextStyle(
                   color: StitchTheme.primary,
                   fontWeight: FontWeight.bold,
@@ -179,14 +194,14 @@ class _OrderCard extends StatelessWidget {
             children: [
               const Text('Date', style: TextStyle(color: StitchTheme.textMuted)),
               Text(
-                order.createdAt != null
-                    ? DateFormat('dd MMM yyyy, hh:mm a').format(order.createdAt!.toLocal())
+                widget.order.createdAt != null
+                    ? DateFormat('dd MMM yyyy, hh:mm a').format(widget.order.createdAt!.toLocal())
                     : 'Unknown',
                 style: const TextStyle(color: StitchTheme.textMain),
               ),
             ],
           ),
-          if (order.status == 'completed' && order.deliveryData != null && order.deliveryData!.isNotEmpty) ...[
+          if (widget.order.status == 'completed' && widget.order.deliveryData != null && widget.order.deliveryData!.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Divider(color: StitchTheme.surfaceHighlight),
@@ -209,12 +224,57 @@ class _OrderCard extends StatelessWidget {
                 border: Border.all(color: StitchTheme.surfaceHighlight),
               ),
               child: SelectableText(
-                order.deliveryData!,
+                widget.order.deliveryData!,
                 style: const TextStyle(
                   color: StitchTheme.textMain,
                   fontFamily: 'monospace',
                 ),
               ),
+            ),
+          ],
+          if (widget.order.status == 'pending') ...[
+            const SizedBox(height: 16),
+            StitchButton(
+              text: _isCancelling ? 'Cancelling...' : 'Cancel Order',
+              isLoading: _isCancelling,
+              onPressed: _isCancelling
+                  ? null
+                  : () async {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Cancel order?'),
+                          content: const Text('Your wallet will be refunded.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('No'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Yes, cancel'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirm != true) return;
+
+                      setState(() => _isCancelling = true);
+                      try {
+                        await _shopService.cancelOrder(widget.order.id);
+                        if (mounted) {
+                          StitchSnackbar.showSuccess(context, 'Order cancelled & refunded');
+                        }
+                        await widget.onCancelled();
+                      } catch (e) {
+                        if (mounted) {
+                          StitchSnackbar.showError(context, 'Cancel failed: $e');
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isCancelling = false);
+                      }
+                    },
             ),
           ],
         ],

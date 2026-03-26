@@ -572,17 +572,16 @@ class _ParticipantsTabState extends State<_ParticipantsTab> {
 
         final user = _participants[index]['users'];
         final List<dynamic>? teamData = _participants[index]['team_data'] as List<dynamic>?;
-        
+
         if (user == null) return const SizedBox.shrink();
 
-        // Find the leader/primary player's gaming info
-        String ign = 'N/A';
-        String uid = 'N/A';
-        if (teamData != null && teamData.isNotEmpty) {
-          final leader = teamData.firstWhere((p) => p['is_leader'] == 'true' || p['is_leader'] == true, orElse: () => teamData.first);
-          ign = leader['name']?.toString() ?? 'N/A';
-          uid = leader['uid']?.toString() ?? 'N/A';
-        }
+        // Render ALL members from `team_data` (Duo=2, Squad=4).
+        // Previously this UI only displayed the leader, which is why you saw only 1 player detail.
+        final members = teamData
+            ?.whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m as Map))
+            .toList() ??
+            <Map<String, dynamic>>[];
         
         return Container(
           padding: const EdgeInsets.all(16),
@@ -603,12 +602,38 @@ class _ParticipantsTabState extends State<_ParticipantsTab> {
                     const SizedBox(height: 2),
                     Text('@${user['username'] ?? 'user'}', style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _SmallBadge(label: 'IGN', value: ign, color: Colors.cyanAccent),
-                        const SizedBox(width: 8),
-                        _SmallBadge(label: 'UID', value: uid, color: Colors.purpleAccent),
-                      ],
+                    Text(
+                      'Team Members: ${members.length}',
+                      style: const TextStyle(color: Colors.white60, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: members
+                          .map((m) {
+                            final name = m['name']?.toString() ?? 'N/A';
+                            final uid = m['uid']?.toString() ?? 'N/A';
+                            final isLeader = m['is_leader'] == true || m['is_leader'] == 'true';
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${isLeader ? 'Leader: ' : ''}$name',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  _SmallBadge(label: 'UID', value: uid, color: Colors.purpleAccent),
+                                ],
+                              ),
+                            );
+                          })
+                          .toList(),
                     ),
                   ],
                 ),
