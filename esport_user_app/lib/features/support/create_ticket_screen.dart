@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class CreateTicketScreen extends StatefulWidget {
   const CreateTicketScreen({Key? key}) : super(key: key);
@@ -58,12 +59,14 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
           _imageUrl = jsonData['data']['url'];
           _isUploading = false;
         });
+        if (!mounted) return;
         StitchSnackbar.showSuccess(context, 'Image attached!');
       } else {
         throw Exception();
       }
     } catch (e) {
       if (mounted) setState(() => _isUploading = false);
+      if (!mounted) return;
       StitchSnackbar.showError(context, 'Image upload failed');
     }
   }
@@ -214,7 +217,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.network(_imageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover),
+                child: CachedNetworkImage(imageUrl: _imageUrl!, height: 150, width: double.infinity, fit: BoxFit.cover),
               ),
               Positioned(
                 top: 8, right: 8,

@@ -453,7 +453,7 @@ class _CompletedMatchCard extends StatelessWidget {
                 height: 140,
                 width: double.infinity,
                 child: tournament['banner_url'] != null
-                    ? Image.network(tournament['banner_url'], fit: BoxFit.cover)
+                    ? CachedNetworkImage(imageUrl: tournament['banner_url'], fit: BoxFit.cover)
                     : Container(color: const Color(0xFF2A2D36)),
               ),
               Positioned.fill(

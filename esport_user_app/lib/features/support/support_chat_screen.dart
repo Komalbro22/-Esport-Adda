@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SupportChatScreen extends StatefulWidget {
   final String ticketId;
@@ -100,6 +101,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       });
       _msgCtrl.clear();
     } catch (e) {
+      if (!mounted) return;
       StitchSnackbar.showError(context, 'Failed to send message');
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -127,6 +129,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
         await _sendMessage(imageUrl: url);
       }
     } catch (e) {
+      if (!mounted) return;
       StitchSnackbar.showError(context, 'Image upload failed');
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -137,8 +140,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
     try {
       await _supabase.from('support_tickets').update({'status': 'open'}).eq('id', widget.ticketId);
       _fetchData();
+      if (!mounted) return;
       StitchSnackbar.showSuccess(context, 'Ticket re-opened');
     } catch (e) {
+      if (!mounted) return;
       StitchSnackbar.showError(context, 'Failed to re-open');
     }
   }
@@ -215,7 +220,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                       onTap: () => _viewImage(msg['image_url']),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(msg['image_url'], fit: BoxFit.cover),
+                        child: CachedNetworkImage(imageUrl: msg['image_url'], fit: BoxFit.cover),
                       ),
                     ),
                   ),
@@ -284,7 +289,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       context: context,
       builder: (context) => Stack(
         children: [
-          InteractiveViewer(child: Center(child: Image.network(url))),
+          InteractiveViewer(child: Center(child: CachedNetworkImage(imageUrl: url))),
           Positioned(top: 40, right: 20, child: IconButton(icon: const Icon(Icons.close, color: Colors.white, size: 30), onPressed: () => Navigator.pop(context))),
         ],
       ),

@@ -26,21 +26,27 @@ class StitchCard extends StatelessWidget {
       margin: margin,
       decoration: BoxDecoration(
         color: StitchTheme.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: StitchTheme.surfaceHighlight.withOpacity(0.5),
-          width: 1,
+          color: StitchTheme.surfaceHighlight.withValues(alpha: 0.6),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: StitchTheme.primary.withValues(alpha: 0.05),
+            blurRadius: 15,
+            spreadRadius: 1,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           )
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: child,
       ),
     );

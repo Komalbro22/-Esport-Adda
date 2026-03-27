@@ -132,7 +132,7 @@ class _DepositManagementScreenState extends State<DepositManagementScreen> {
         backgroundColor: Colors.transparent,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Image.network(url, fit: BoxFit.contain),
+          child: CachedNetworkImage(imageUrl: url, fit: BoxFit.contain),
         ),
       )
     );
