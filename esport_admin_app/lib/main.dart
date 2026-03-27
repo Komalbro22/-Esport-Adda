@@ -287,16 +287,33 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/shop/product/:id',
-      builder: (context, state) => PermissionGuard(
-        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
-        child: AdminProductForm(existingProduct: state.extra as ShopProduct?),
-      ),
+      builder: (context, state) {
+        final extra = state.extra;
+        final product = extra is ShopProduct ? extra : null;
+        return PermissionGuard(
+          allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+          child: AdminProductForm(
+            existingProduct: product,
+            productId: state.pathParameters['id'],
+          ),
+        );
+      },
     ),
     GoRoute(
       path: '/shop/order/:id',
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
-        child: AdminOrderDetail(order: state.extra as ShopOrder),
+        child: (() {
+          final order = state.extra;
+          if (order is! ShopOrder) {
+            return const _RouteDataMissingScreen(
+              title: 'Order Not Loaded',
+              message: 'Open this order from the shop dashboard to load its details.',
+              fallbackPath: '/shop',
+            );
+          }
+          return AdminOrderDetail(order: order);
+        })(),
       ),
     ),
   ],
@@ -312,6 +329,77 @@ class AdminApp extends StatelessWidget {
       theme: StitchTheme.themeData,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class _RouteDataMissingScreen extends StatelessWidget {
+  final String title;
+  final String message;
+  final String fallbackPath;
+
+  const _RouteDataMissingScreen({
+    required this.title,
+    required this.message,
+    required this.fallbackPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: StitchTheme.background,
+      appBar: AppBar(title: const Text('Navigation Help')),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: StitchCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.rule_folder_outlined,
+                    size: 48,
+                    color: StitchTheme.warning,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: StitchTheme.textMain,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: StitchTheme.textMuted,
+                      fontSize: 15,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  StitchButton(
+                    text: 'Go to Shop Dashboard',
+                    onPressed: () => context.go(fallbackPath),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => context.pop(),
+                    child: const Text('Dismiss'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

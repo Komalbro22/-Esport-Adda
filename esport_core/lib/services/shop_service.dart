@@ -23,6 +23,16 @@ class ShopService {
     return response.map((e) => ShopProduct.fromJson(e)).toList();
   }
 
+  Future<ShopProduct?> getProductById(String id) async {
+    final response = await _supabase
+        .from('shop_products')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+    if (response == null) return null;
+    return ShopProduct.fromJson(response);
+  }
+
   Future<void> createProduct(ShopProduct product) async {
     await _supabase.from('shop_products').insert({
       'name': product.name,
