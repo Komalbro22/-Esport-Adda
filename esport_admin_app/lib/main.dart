@@ -348,24 +348,56 @@ class _RouteDataMissingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: StitchTheme.background,
-      appBar: AppBar(title: Text(title)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: StitchTheme.textMain, fontSize: 16),
+      appBar: AppBar(title: const Text('Navigation Help')),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: StitchCard(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.rule_folder_outlined,
+                    size: 48,
+                    color: StitchTheme.warning,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: StitchTheme.textMain,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: StitchTheme.textMuted,
+                      fontSize: 15,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  StitchButton(
+                    text: 'Go to Shop Dashboard',
+                    onPressed: () => context.go(fallbackPath),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => context.pop(),
+                    child: const Text('Dismiss'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            StitchButton(
-              text: 'Go to Shop Dashboard',
-              onPressed: () => context.go(fallbackPath),
-            ),
-          ],
+          ),
         ),
       ),
     );
