@@ -6,22 +6,12 @@ on:
   push:
     branches: ["**"]
   workflow_dispatch:
-    inputs:
-      build_mode:
-        description: "APK mode"
-        required: true
-        default: release
-        type: choice
-        options:
-          - release
-          - debug
 
 jobs:
   build-apk:
     name: Build ${{ matrix.app.name }} APK
     runs-on: ubuntu-latest
     env:
-      BUILD_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_mode || 'release' }}
       BUILD_NUMBER: ${{ github.run_number }}
     strategy:
       fail-fast: false
@@ -65,24 +55,24 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          if [ "$BUILD_MODE" = "release" ] && [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
-            echo "Using signed release build (build number: $BUILD_NUMBER)"
-            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
-            printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n" \
-              "$KEYSTORE_PASSWORD" \
-              "$KEY_PASSWORD" \
-              "$KEY_ALIAS" \
-              "esportadda-release.keystore" > android/key.properties
-            flutter build apk --release --build-number="$BUILD_NUMBER"
-            cp build/app/outputs/flutter-apk/app-release.apk ../${{ matrix.app.artifact }}.apk
-          else
-            echo "Signing secrets missing or debug mode selected; building debug APK (build number: $BUILD_NUMBER)"
-            flutter build apk --debug --build-number="$BUILD_NUMBER"
-            cp build/app/outputs/flutter-apk/app-debug.apk ../${{ matrix.app.artifact }}.apk
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "ERROR: Signing secrets are missing. Release APK is required for install/update compatibility."
+            exit 1
           fi
+
+          echo "Using signed release build (build number: $BUILD_NUMBER)"
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
+          printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n" \
+            "$KEYSTORE_PASSWORD" \
+            "$KEY_PASSWORD" \
+            "$KEY_ALIAS" \
+            "esportadda-release.keystore" > android/key.properties
+
+          flutter build apk --release --build-number="$BUILD_NUMBER"
+          cp build/app/outputs/flutter-apk/app-release.apk ../${{ matrix.app.artifact }}.apk
 
       - name: Upload Artifact (${{ matrix.app.name }})
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app.artifact }}
+          name: ${{ matrix.app.artifact }}-b${{ env.BUILD_NUMBER }}
           path: ${{ matrix.app.artifact }}.apk
