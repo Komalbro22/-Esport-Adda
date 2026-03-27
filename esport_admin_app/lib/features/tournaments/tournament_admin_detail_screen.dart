@@ -476,10 +476,18 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.all(10),
+                                  padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: StitchTheme.surfaceHighlight,
+                                    color: _getStatusColor(status.toString()).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: _getStatusColor(status.toString()).withValues(alpha: 0.3)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: _getStatusColor(status.toString()).withValues(alpha: 0.1),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                      )
+                                    ],
                                   ),
                                   child: Icon(
                                     status == 'ongoing' ? Icons.play_circle_filled_rounded : 
@@ -502,9 +510,16 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.03),
+                                  color: StitchTheme.primary.withValues(alpha: 0.05),
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
+                                  border: Border.all(color: StitchTheme.primary.withValues(alpha: 0.2)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: StitchTheme.primary.withValues(alpha: 0.1),
+                                      blurRadius: 15,
+                                      spreadRadius: 0,
+                                    ),
+                                  ],
                                 ),
                                 child: Column(
                                   children: [
@@ -563,6 +578,11 @@ class _TournamentAdminDetailScreenState extends State<TournamentAdminDetailScree
                           const Text('PRIZE CONFIGURATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: StitchTheme.textMuted, letterSpacing: 2)),
                           if (status != 'completed' && t['prize_type'] != 'dynamic')
                             TextButton.icon(
+                              style: TextButton.styleFrom(
+                                backgroundColor: StitchTheme.primary.withValues(alpha: 0.1),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                              ),
                               icon: const Icon(Icons.edit_note_rounded, color: StitchTheme.primary, size: 20),
                               label: const Text('EDIT', style: TextStyle(color: StitchTheme.primary, fontWeight: FontWeight.bold, fontSize: 12)),
                               onPressed: _showPrizeSetupDialog,

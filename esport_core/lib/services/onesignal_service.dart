@@ -10,7 +10,7 @@ class OneSignalService {
   // You should fill these with real IDs from OneSignal Dashboard
   static const String appId = "1399de2c-0645-4bab-b5b1-fb1ce32da972"; 
 
-  Future<void> initialize() async {
+  Future<void> initialize({Function(Map<String, dynamic>)? onNotificationClick}) async {
     if (kIsWeb) return;
 
     // Remove this method to stop using debug logs
@@ -29,7 +29,12 @@ class OneSignalService {
 
     OneSignal.Notifications.addClickListener((event) {
       debugPrint('Notification clicked: ${event.notification.body}');
-      // Deep linking logic can be added here or via a stream
+      if (onNotificationClick != null) {
+        final data = event.notification.additionalData;
+        if (data != null) {
+          onNotificationClick(data.cast<String, dynamic>());
+        }
+      }
     });
 
     // Update Player ID in Supabase if user is logged in

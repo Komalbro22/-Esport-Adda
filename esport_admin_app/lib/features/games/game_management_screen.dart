@@ -94,78 +94,80 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
       title: game == null ? 'Add Game' : 'Edit Game',
       content: StatefulBuilder(
         builder: (context, setDialogState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              StitchInput(label: 'Game Name', controller: nameCtrl),
-              const SizedBox(height: 12),
-              StitchInput(label: 'Description', controller: descCtrl),
-              const SizedBox(height: 12),
-              StitchInput(label: 'Sort Order (lower entries show first)', controller: sortCtrl, keyboardType: TextInputType.number),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: StitchInput(label: 'Logo URL', controller: logoCtrl)),
-                  const SizedBox(width: 8),
-                  if (isUploading)
-                    const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                  else
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                StitchInput(label: 'Game Name', controller: nameCtrl),
+                const SizedBox(height: 12),
+                StitchInput(label: 'Description', controller: descCtrl),
+                const SizedBox(height: 12),
+                StitchInput(label: 'Sort Order (lower entries show first)', controller: sortCtrl, keyboardType: TextInputType.number),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: StitchInput(label: 'Logo URL', controller: logoCtrl)),
+                    const SizedBox(width: 8),
+                    if (isUploading)
+                      const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.add_photo_alternate_rounded, color: StitchTheme.primary),
+                        tooltip: 'Upload Logo',
+                        onPressed: () => pickAndUpload(setDialogState),
+                      ),
                     IconButton(
-                      icon: const Icon(Icons.add_photo_alternate_rounded, color: StitchTheme.primary),
-                      tooltip: 'Upload Logo',
-                      onPressed: () => pickAndUpload(setDialogState),
+                      icon: const Icon(Icons.collections, color: StitchTheme.primary),
+                      tooltip: 'Pick from Assets',
+                      onPressed: () async {
+                        final selectedUrl = await context.push<String?>('/assets?selection=true');
+                        if (selectedUrl != null) {
+                          setDialogState(() => logoCtrl.text = selectedUrl);
+                        }
+                      },
                     ),
-                  IconButton(
-                    icon: const Icon(Icons.collections, color: StitchTheme.primary),
-                    tooltip: 'Pick from Assets',
-                    onPressed: () async {
-                      final selectedUrl = await context.push<String?>('/assets?selection=true');
-                      if (selectedUrl != null) {
-                        setDialogState(() => logoCtrl.text = selectedUrl);
-                      }
-                    },
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Is Active', style: TextStyle(color: StitchTheme.textMain)),
+                  value: isActive,
+                  activeColor: StitchTheme.primary,
+                  onChanged: (v) => setDialogState(() => isActive = v),
+                ),
+                const Divider(color: Colors.white10, height: 32),
+                SwitchListTile(
+                  title: const Text('Enable Challenges', style: TextStyle(color: StitchTheme.textMain)),
+                  value: challengeEnabled,
+                  activeColor: StitchTheme.primary,
+                  onChanged: (v) => setDialogState(() => challengeEnabled = v),
+                ),
+                if (challengeEnabled) ...[
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Commission %', controller: commissionCtrl, keyboardType: TextInputType.number),
+                  const SizedBox(height: 12),
+                  StitchInput(label: 'Min Entry Fee', controller: minEntryCtrl, keyboardType: TextInputType.number),
+                  const SizedBox(height: 12),
+                  const Text('Allowed Modes', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  Wrap(
+                    spacing: 8,
+                    children: ['1v1', '2v2', '4v4'].map((mode) {
+                      final isSelected = allowedModes.contains(mode);
+                      return FilterChip(
+                        label: Text(mode),
+                        selected: isSelected,
+                        onSelected: (v) {
+                          setDialogState(() {
+                            if (v) allowedModes.add(mode);
+                            else allowedModes.remove(mode);
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                title: const Text('Is Active', style: TextStyle(color: StitchTheme.textMain)),
-                value: isActive,
-                activeColor: StitchTheme.primary,
-                onChanged: (v) => setDialogState(() => isActive = v),
-              ),
-              const Divider(color: Colors.white10, height: 32),
-              SwitchListTile(
-                title: const Text('Enable Challenges', style: TextStyle(color: StitchTheme.textMain)),
-                value: challengeEnabled,
-                activeColor: StitchTheme.primary,
-                onChanged: (v) => setDialogState(() => challengeEnabled = v),
-              ),
-              if (challengeEnabled) ...[
-                const SizedBox(height: 12),
-                StitchInput(label: 'Commission %', controller: commissionCtrl, keyboardType: TextInputType.number),
-                const SizedBox(height: 12),
-                StitchInput(label: 'Min Entry Fee', controller: minEntryCtrl, keyboardType: TextInputType.number),
-                const SizedBox(height: 12),
-                const Text('Allowed Modes', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                Wrap(
-                  spacing: 8,
-                  children: ['1v1', '2v2', '4v4'].map((mode) {
-                    final isSelected = allowedModes.contains(mode);
-                    return FilterChip(
-                      label: Text(mode),
-                      selected: isSelected,
-                      onSelected: (v) {
-                        setDialogState(() {
-                          if (v) allowedModes.add(mode);
-                          else allowedModes.remove(mode);
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
               ],
-            ],
+            ),
           );
         }
       ),
@@ -215,10 +217,19 @@ class _GameManagementScreenState extends State<GameManagementScreen> {
       primaryButtonColor: StitchTheme.error,
       onPrimaryPressed: () async {
         try {
+          // 1. Find and cascade delete all Tournaments (and their joined teams) for this game
+          final tournaments = await _supabase.from('tournaments').select('id').eq('game_id', game['id']);
+          for (var t in tournaments) {
+             await _supabase.from('joined_teams').delete().eq('tournament_id', t['id']);
+             await _supabase.from('tournaments').delete().eq('id', t['id']);
+          }
+          
+          // 2. Finally delete the Game securely
           await _supabase.from('games').delete().eq('id', game['id']);
+          
           if (mounted) {
             context.pop();
-            StitchSnackbar.showSuccess(context, 'Game deleted');
+            StitchSnackbar.showSuccess(context, 'Game and all related data deleted securely');
             _fetchGames();
           }
         } catch (e) {

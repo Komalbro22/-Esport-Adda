@@ -202,6 +202,7 @@ class _ProfileTabState extends State<ProfileTab> {
                   _buildMenuListItem(Icons.bar_chart_rounded, 'Global Leaderboard', () => context.push('/global_leaderboard')),
                   _buildMenuListItem(Icons.confirmation_number_outlined, 'Redeem Code', () => context.push('/redeem_code')),
                   _buildMenuListItem(Icons.share_rounded, 'Refer & Earn', () => context.push('/referral')),
+                  _buildMenuListItem(Icons.headset_mic_rounded, 'Help & Support', () => context.push('/support')),
                   _buildMenuListItem(Icons.settings, 'Game Settings', () => context.push('/settings')),
                 ],
               ),

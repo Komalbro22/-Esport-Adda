@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:esport_core/esport_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -59,6 +60,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     await _fetchNotifications();
   }
 
+  Future<void> _clearAllNotifications() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        await _supabase.from('notifications').delete().eq('user_id', user.id);
+        setState(() {
+          _notifications.clear();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error clearing notifications: $e');
+    }
+  }
+
   IconData _getIconForType(String type) {
     switch (type) {
       case 'tournament':
@@ -94,6 +109,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onPressed: _isLoading ? null : _markAllAsRead,
             tooltip: 'Mark all as read',
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded),
+            onPressed: _isLoading ? null : _clearAllNotifications,
+            tooltip: 'Clear all notifications',
+          ),
         ],
       ),
       body: _isLoading
@@ -125,42 +145,81 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         (notification['message'] ?? notification['body'] ?? '').toString();
                     final String type = (notification['type'] ?? 'admin_push').toString();
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: StitchTheme.primary.withOpacity(0.1),
-                          child: Icon(_getIconForType(type), color: StitchTheme.primary),
+                      return Dismissible(
+                        key: Key(notification['id'].toString()),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          title: Text(
-                            notification['title'],
-                            style: TextStyle(
-                              fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const SizedBox(height: 4),
-                            Text(message),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd MMM, hh:mm a').format(createdAt),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          onTap: () {
-                          // Mark as read when user taps.
+                          child: const Icon(Icons.delete_outline, color: Colors.white),
+                        ),
+                        onDismissed: (direction) {
                           final id = notification['id'];
-                          if (id != null && (notification['is_read'] ?? false) == false) {
-                            _supabase.from('notifications').update({'is_read': true}).eq('id', id).then((_) {
-                              _fetchNotifications();
-                            }).catchError((e) {
-                              debugPrint('Error marking notification as read: $e');
+                          if (id != null) {
+                            _supabase.from('notifications').delete().eq('id', id).catchError((e) {
+                              debugPrint('Error deleting notification: $e');
                             });
                           }
-                          },
+                          setState(() {
+                            _notifications.removeAt(index);
+                          });
+                        },
+                        child: Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: StitchTheme.primary.withOpacity(0.1),
+                              child: Icon(_getIconForType(type), color: StitchTheme.primary),
+                            ),
+                            title: Text(
+                              notification['title'],
+                              style: TextStyle(
+                                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(message),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('dd MMM, hh:mm a').format(createdAt),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              final id = notification['id'];
+                              final referenceId = (notification['reference_id'] ?? '').toString();
+
+                              if (id != null && (notification['is_read'] ?? false) == false) {
+                                _supabase.from('notifications').update({'is_read': true}).eq('id', id).then((_) {
+                                  _fetchNotifications();
+                                }).catchError((e) {
+                                  debugPrint('Error marking notification as read: $e');
+                                });
+                              }
+
+                              if (referenceId.isNotEmpty) {
+                                if (type == 'room_update' || type == 'tournament') {
+                                  context.push('/tournament_detail/$referenceId');
+                                } else if (type == 'support_ticket') {
+                                  context.push('/support_chat/$referenceId');
+                                } else if (type == 'match_result') {
+                                  context.push('/match_results/$referenceId');
+                                } else if (type == 'challenge') {
+                                  context.push('/challenge_detail/$referenceId');
+                                } else if (type == 'wallet') {
+                                  context.push('/wallet'); // Or specific receipt screen
+                                }
+                              }
+                            },
+                          ),
                         ),
                       );
                     },

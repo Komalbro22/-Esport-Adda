@@ -25,10 +25,9 @@ class StitchDialog {
         return Center(
           child: Material(
             color: Colors.transparent,
-            child: Wrap(
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
+            child: SingleChildScrollView(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: StitchTheme.surface,
@@ -92,9 +91,8 @@ class StitchDialog {
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {

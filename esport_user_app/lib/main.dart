@@ -48,7 +48,22 @@ void main() async {
   
   if (!kIsWeb) {
     try {
-      await OneSignalService().initialize();
+      await OneSignalService().initialize(
+        onNotificationClick: (data) {
+          final type = data['type'];
+          final id = data['id'];
+          
+          if (type != null && id != null) {
+            if (type == 'room_update' || type == 'tournament') {
+              _router.push('/tournament_detail/$id');
+            } else if (type == 'support_ticket') {
+              _router.push('/support_chat/$id');
+            } else if (type == 'match_result') {
+              _router.push('/match_results/$id');
+            }
+          }
+        }
+      );
     } catch (e) {
       debugPrint('OneSignal initialization failed: $e');
     }
