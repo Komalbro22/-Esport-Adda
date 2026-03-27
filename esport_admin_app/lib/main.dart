@@ -287,10 +287,17 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/shop/product/:id',
-      builder: (context, state) => PermissionGuard(
-        allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
-        child: AdminProductForm(existingProduct: state.extra as ShopProduct?),
-      ),
+      builder: (context, state) {
+        final extra = state.extra;
+        final product = extra is ShopProduct ? extra : null;
+        return PermissionGuard(
+          allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
+          child: AdminProductForm(
+            existingProduct: product,
+            productId: state.pathParameters['id'],
+          ),
+        );
+      },
     ),
     GoRoute(
       path: '/shop/order/:id',

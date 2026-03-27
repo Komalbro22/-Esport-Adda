@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 class AdminProductForm extends StatefulWidget {
   final ShopProduct? existingProduct;
-  const AdminProductForm({Key? key, this.existingProduct}) : super(key: key);
+  final String? productId;
+  const AdminProductForm({Key? key, this.existingProduct, this.productId}) : super(key: key);
 
   @override
   State<AdminProductForm> createState() => _AdminProductFormState();
@@ -14,6 +15,8 @@ class _AdminProductFormState extends State<AdminProductForm> {
   final _formKey = GlobalKey<FormState>();
   final _shopService = ShopService();
   bool _isSaving = false;
+  bool _isLoadingProduct = false;
+  ShopProduct? _editingProduct;
 
   late TextEditingController _nameController;
   late TextEditingController _descController;
@@ -29,6 +32,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
   void initState() {
     super.initState();
     final p = widget.existingProduct;
+    _editingProduct = p;
     _nameController = TextEditingController(text: p?.name ?? '');
     _descController = TextEditingController(text: p?.description ?? '');
     _priceController = TextEditingController(text: p?.price.toString() ?? '');
@@ -39,6 +43,39 @@ class _AdminProductFormState extends State<AdminProductForm> {
       _isDigital = p.isDigital;
       _isActive = p.isActive;
       _allowedWalletType = p.allowedWalletType;
+    }
+
+    if (p == null && widget.productId != null && widget.productId!.isNotEmpty) {
+      _loadProduct(widget.productId!);
+    }
+  }
+
+  Future<void> _loadProduct(String productId) async {
+    setState(() => _isLoadingProduct = true);
+    try {
+      final product = await _shopService.getProductById(productId);
+      if (!mounted) return;
+      if (product == null) {
+        StitchSnackbar.showError(context, 'Product not found');
+        context.pop();
+        return;
+      }
+
+      _editingProduct = product;
+      _nameController.text = product.name;
+      _descController.text = product.description ?? '';
+      _priceController.text = product.price.toString();
+      _categoryController.text = product.category ?? '';
+      _imageController.text = product.imageUrl ?? '';
+      _isDigital = product.isDigital;
+      _isActive = product.isActive;
+      _allowedWalletType = product.allowedWalletType;
+    } catch (e) {
+      if (!mounted) return;
+      StitchSnackbar.showError(context, 'Failed to load product: $e');
+      context.pop();
+    } finally {
+      if (mounted) setState(() => _isLoadingProduct = false);
     }
   }
 
@@ -59,7 +96,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
 
     try {
       final product = ShopProduct(
-        id: widget.existingProduct?.id ?? '',
+        id: _editingProduct?.id ?? '',
         name: _nameController.text.trim(),
         description: _descController.text.trim(),
         price: double.parse(_priceController.text.trim()),
@@ -70,7 +107,7 @@ class _AdminProductFormState extends State<AdminProductForm> {
         allowedWalletType: _allowedWalletType,
       );
 
-      if (widget.existingProduct != null) {
+      if (_editingProduct != null) {
         await _shopService.updateProduct(product);
         StitchSnackbar.showSuccess(context, 'Product updated successfully!');
       } else {
@@ -91,11 +128,13 @@ class _AdminProductFormState extends State<AdminProductForm> {
     return Scaffold(
       backgroundColor: StitchTheme.background,
       appBar: AppBar(
-        title: Text(widget.existingProduct != null ? 'Edit Product' : 'Add Product'),
+        title: Text(_editingProduct != null ? 'Edit Product' : 'Add Product'),
         backgroundColor: StitchTheme.surface,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
+      body: _isLoadingProduct
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
