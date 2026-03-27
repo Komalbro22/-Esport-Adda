@@ -1,142 +1,88 @@
-name: Flutter APK Build & Release
+name: Build Android APKs
+
+run-name: "APK Build • ${{ github.ref_name }} • #${{ github.run_number }}"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["**"]
   workflow_dispatch:
-
-permissions:
-  contents: write
+    inputs:
+      build_mode:
+        description: "APK mode"
+        required: true
+        default: release
+        type: choice
+        options:
+          - release
+          - debug
 
 jobs:
-  build:
-    name: Build APKs
+  build-apk:
+    name: Build ${{ matrix.app.name }} APK
     runs-on: ubuntu-latest
-    
+    env:
+      BUILD_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_mode || 'release' }}
+      BUILD_NUMBER: ${{ github.run_number }}
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: User App
+            dir: esport_user_app
+            artifact: esport_user_app-apk
+          - name: Admin App
+            dir: esport_admin_app
+            artifact: esport_admin_app-apk
+
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Increment Version & Set Build Numbers
-        run: |
-          # OFFSET ensures we stay above existing manual versions (like +29)
-          OFFSET=100
-          BUILD_NUMBER=$((GITHUB_RUN_NUMBER + OFFSET))
-          
-          echo "NEW_BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          
-          # Update User App
-          cd esport_user_app
-          VERSION_LINE=$(grep "version: " pubspec.yaml)
-          VERSION_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
-          # Increment patch
-          IFS='.' read -r major minor patch <<< "$VERSION_NAME"
-          NEW_VERSION_NAME="$major.$minor.$((patch + 1))"
-          NEW_VERSION="$NEW_VERSION_NAME+$BUILD_NUMBER"
-          sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
-          cd ..
-          
-          # Update Admin App
-          cd esport_admin_app
-          VERSION_LINE=$(grep "version: " pubspec.yaml)
-          VERSION_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
-          # Increment patch
-          IFS='.' read -r major minor patch <<< "$VERSION_NAME"
-          NEW_VERSION_NAME="$major.$minor.$((patch + 1))"
-          NEW_VERSION="$NEW_VERSION_NAME+$BUILD_NUMBER"
-          sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
-          cd ..
-          
-          echo "User App & Admin App updated to build $BUILD_NUMBER"
-
-      - name: Commit Version Bump
-        run: |
-          git add esport_user_app/pubspec.yaml esport_admin_app/pubspec.yaml
-          git commit -m "chore: bump version to build $NEW_BUILD_NUMBER [skip ci]" || echo "No changes to commit"
-          git push
 
       - name: Get Dependencies (Core)
         run: flutter pub get
         working-directory: esport_core
 
-      - name: Build User App
-        working-directory: esport_user_app
+      - name: Get Dependencies (${{ matrix.app.name }})
+        run: flutter pub get
+        working-directory: ${{ matrix.app.dir }}
+
+      - name: Build APK (${{ matrix.app.name }})
+        working-directory: ${{ matrix.app.dir }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
-          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
-          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
-          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
-          echo "storeFile=esportadda-release.keystore" >> android/key.properties
-          flutter pub get
-          flutter build apk --release
-          # Rename to avoid conflict in release
-          cp build/app/outputs/flutter-apk/app-release.apk ../esport_user_app.apk
+          if [ "$BUILD_MODE" = "release" ] && [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
+            echo "Using signed release build (build number: $BUILD_NUMBER)"
+            echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
+            printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n" \
+              "$KEYSTORE_PASSWORD" \
+              "$KEY_PASSWORD" \
+              "$KEY_ALIAS" \
+              "esportadda-release.keystore" > android/key.properties
+            flutter build apk --release --build-number="$BUILD_NUMBER"
+            cp build/app/outputs/flutter-apk/app-release.apk ../${{ matrix.app.artifact }}.apk
+          else
+            echo "Signing secrets missing or debug mode selected; building debug APK (build number: $BUILD_NUMBER)"
+            flutter build apk --debug --build-number="$BUILD_NUMBER"
+            cp build/app/outputs/flutter-apk/app-debug.apk ../${{ matrix.app.artifact }}.apk
+          fi
 
-      - name: Build Admin App
-        working-directory: esport_admin_app
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/esportadda-release.keystore
-          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
-          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
-          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
-          echo "storeFile=esportadda-release.keystore" >> android/key.properties
-          flutter pub get
-          flutter build apk --release
-          # Rename to avoid conflict in release
-          cp build/app/outputs/flutter-apk/app-release.apk ../esport_admin_app.apk
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.NEW_BUILD_NUMBER }}
-          name: Release v${{ env.NEW_BUILD_NUMBER }}
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          files: |
-            esport_user_app.apk
-            esport_admin_app.apk
-          body: |
-            Automatically generated release from GitHub Actions.
-            - User App Build: ${{ env.NEW_BUILD_NUMBER }}
-            - Admin App Build: ${{ env.NEW_BUILD_NUMBER }}
-
-      - name: Upload User App Artifact
+      - name: Upload Artifact (${{ matrix.app.name }})
         uses: actions/upload-artifact@v4
         with:
-          name: esport_user_app-v${{ env.NEW_BUILD_NUMBER }}
-          path: esport_user_app.apk
-
-      - name: Upload Admin App Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: esport_admin_app-v${{ env.NEW_BUILD_NUMBER }}
-          path: esport_admin_app.apk
+          name: ${{ matrix.app.artifact }}
+          path: ${{ matrix.app.artifact }}.apk
