@@ -118,7 +118,14 @@ final _router = GoRouter(
     GoRoute(
       path: '/otp',
       builder: (context, state) {
-        final extras = state.extra as Map<String, dynamic>;
+        final extras = state.extra;
+        if (extras is! Map<String, dynamic> || extras['email'] is! String || extras['reason'] is! OTPReason) {
+          return const _RouteDataMissingScreen(
+            title: 'Invalid OTP Link',
+            message: 'This OTP screen needs login/signup data. Please request a new OTP and try again.',
+            fallbackPath: '/login',
+          );
+        }
         return OTPVerificationScreen(
           email: extras['email'] as String,
           reason: extras['reason'] as OTPReason,
@@ -165,7 +172,17 @@ final _router = GoRouter(
     ),
     GoRoute(
       path: '/withdraw/vouchers/amounts',
-      builder: (context, state) => VoucherAmountsScreen(category: state.extra as VoucherCategory),
+      builder: (context, state) {
+        final category = state.extra;
+        if (category is! VoucherCategory) {
+          return const _RouteDataMissingScreen(
+            title: 'Voucher Category Missing',
+            message: 'Please select a voucher category first.',
+            fallbackPath: '/withdraw/vouchers',
+          );
+        }
+        return VoucherAmountsScreen(category: category);
+      },
     ),
     GoRoute(
       path: '/withdraw/vouchers/history',
@@ -257,3 +274,42 @@ final _router = GoRouter(
 );
 
 // DELETED GamerApp Stateless class as it is now Stateful above
+
+class _RouteDataMissingScreen extends StatelessWidget {
+  final String title;
+  final String message;
+  final String fallbackPath;
+
+  const _RouteDataMissingScreen({
+    required this.title,
+    required this.message,
+    required this.fallbackPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: StitchTheme.background,
+      appBar: AppBar(title: Text(title)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: StitchTheme.textMain, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            StitchButton(
+              text: 'Go Back',
+              onPressed: () => context.go(fallbackPath),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

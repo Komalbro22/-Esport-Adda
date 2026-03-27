@@ -296,7 +296,17 @@ final _router = GoRouter(
       path: '/shop/order/:id',
       builder: (context, state) => PermissionGuard(
         allowed: AdminPermissionService.isSuperAdmin || AdminPermissionService.canManageWithdrawals,
-        child: AdminOrderDetail(order: state.extra as ShopOrder),
+        child: (() {
+          final order = state.extra;
+          if (order is! ShopOrder) {
+            return const _RouteDataMissingScreen(
+              title: 'Order Not Loaded',
+              message: 'Open this order from the shop dashboard to load its details.',
+              fallbackPath: '/shop',
+            );
+          }
+          return AdminOrderDetail(order: order);
+        })(),
       ),
     ),
   ],
@@ -312,6 +322,45 @@ class AdminApp extends StatelessWidget {
       theme: StitchTheme.themeData,
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class _RouteDataMissingScreen extends StatelessWidget {
+  final String title;
+  final String message;
+  final String fallbackPath;
+
+  const _RouteDataMissingScreen({
+    required this.title,
+    required this.message,
+    required this.fallbackPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: StitchTheme.background,
+      appBar: AppBar(title: Text(title)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: StitchTheme.textMain, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            StitchButton(
+              text: 'Go to Shop Dashboard',
+              onPressed: () => context.go(fallbackPath),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
